@@ -4,7 +4,7 @@ import {
 import {
     applyDecorators, Type,
 } from "@nestjs/common";
-import CustomResponse from "../../response/custom-response";
+import CustomResponse from "../../common/response/custom-response";
 
 export const ApiCustomResponseDecorator = <TModel extends Type<any>>(model: TModel) => {
     return applyDecorators(
