@@ -1,9 +1,121 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. 사용자
+model Member {
+  id        BigInt   @id @default(autoincrement())
+  email     String   @unique @db.VarChar(50)
+  nickname  String   @unique @db.VarChar(8)
+  password  String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  diaries        Diary[]
+  empathyRecords EmpathyRecord[]
+
+  @@map("member")
+}
+
+// 2. 감정 종류
+model Emotion {
+  id       BigInt  @id @default(autoincrement())
+  name     String  @db.VarChar(20)
+  emojiUrl String  @map("emoji_url") @db.Text
+  diaries  Diary[]
+
+  @@map("emotion")
+}
+
+// 3. 표준 질문 (질문 뱅크)
+model StandardQuestion {
+  id      BigInt  @id @default(autoincrement())
+  content String  @db.Text
+  diaries Diary[]
+
+  @@map("standard_question")
+}
+
+// 4. 일기
+model Diary {
+  id        BigInt   @id @default(autoincrement())
+  title     String   @db.VarChar(30)
+  content   String   @db.Text
+  diaryDate DateTime @map("diary_date") @db.Date
+  isEdited  Boolean  @default(false) @map("is_edited")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberId   BigInt @map("member_id")
+  emotionId  BigInt @map("emotion_id")
+  questionId BigInt @map("question_id")
+
+  member           Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  emotion          Emotion          @relation(fields: [emotionId], references: [id])
+  standardQuestion StandardQuestion @relation(fields: [questionId], references: [id])
+  photos           DiaryPhoto[]
+  squarePost       SquarePost?
+
+  // 제약조건: 한 사용자는 해당 날짜에 하나만, 특정 질문에도 하나만
+  @@unique([memberId, diaryDate])
+  @@unique([memberId, questionId])
+  @@map("diary")
+}
+
+// 5. 일기 사진
+model DiaryPhoto {
+  id           BigInt @id @default(autoincrement())
+  imageUrl     String @map("image_url") @db.Text
+  displayOrder Int    @default(0) @map("display_order")
+  diaryId      BigInt @map("diary_id")
+
+  diary Diary @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+
+  @@map("diary_photo")
+}
+
+// 6. 광장 게시물
+model SquarePost {
+  id        BigInt   @id @default(autoincrement())
+  isActive  Boolean  @default(true) @map("is_active")
+  diaryId   BigInt   @unique @map("diary_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  diary          Diary           @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+  empathyRecords EmpathyRecord[]
+
+  @@map("square_post")
+}
+
+// 7. 공감 종류 (온도 점수 포함)
+model EmpathyType {
+  id             BigInt          @id @default(autoincrement())
+  name           String          @db.VarChar(20)
+  emojiUrl       String          @map("emoji_url") @db.Text
+  score          Int             @default(0)
+  empathyRecords EmpathyRecord[]
+
+  @@map("empathy_type")
+}
+
+// 8. 공감 기록
+model EmpathyRecord {
+  id        BigInt   @id @default(autoincrement())
+  memberId  BigInt   @map("member_id")
+  postId    BigInt   @map("post_id")
+  typeId    BigInt   @map("type_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  member      Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  squarePost  SquarePost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  empathyType EmpathyType @relation(fields: [typeId], references: [id])
+
+  @@unique([memberId, postId])
+  @@map("empathy_record")
 }
