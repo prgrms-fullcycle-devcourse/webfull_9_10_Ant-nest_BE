@@ -1,0 +1,14 @@
+import { Module } from "@nestjs/common";
+
+import { DiaryController } from "./diary.controller";
+import { DiaryService } from "./diary.service";
+import { PrismaModule } from "../prisma/prisma.module";
+import { AuthModule } from "../auth/auth.module";
+
+@Module({
+  imports: [PrismaModule, AuthModule],
+  controllers: [DiaryController],
+  providers: [DiaryService],
+  exports: [DiaryService],
+})
+export class DiaryModule {}
