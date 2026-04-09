@@ -7,7 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. 사용자
+// 1. 감정 정의
+enum EmotionType {
+  ANGRY // 화남
+  FLUTTER // 설렘
+  JOY // 기쁨
+  PERPLEXED // 황당
+  SAD // 슬픔
+}
+
+// 2. 사용자
 model Member {
   id        BigInt   @id @default(autoincrement())
   email     String   @unique @db.VarChar(50)
@@ -22,17 +31,7 @@ model Member {
   @@map("member")
 }
 
-// 2. 감정 종류
-model Emotion {
-  id       BigInt  @id @default(autoincrement())
-  name     String  @db.VarChar(20)
-  emojiUrl String  @map("emoji_url") @db.Text
-  diaries  Diary[]
-
-  @@map("emotion")
-}
-
-// 3. 표준 질문 (질문 뱅크)
+// 3. 표준 질문
 model StandardQuestion {
   id      BigInt  @id @default(autoincrement())
   content String  @db.Text
@@ -47,21 +46,21 @@ model Diary {
   title     String   @db.VarChar(30)
   content   String   @db.Text
   diaryDate DateTime @map("diary_date") @db.Date
+
+  emotion EmotionType
+
   isEdited  Boolean  @default(false) @map("is_edited")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   memberId   BigInt @map("member_id")
-  emotionId  BigInt @map("emotion_id")
   questionId BigInt @map("question_id")
 
   member           Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  emotion          Emotion          @relation(fields: [emotionId], references: [id])
   standardQuestion StandardQuestion @relation(fields: [questionId], references: [id])
   photos           DiaryPhoto[]
   squarePost       SquarePost?
 
-  // 제약조건: 한 사용자는 해당 날짜에 하나만, 특정 질문에도 하나만
   @@unique([memberId, diaryDate])
   @@unique([memberId, questionId])
   @@map("diary")
@@ -93,7 +92,7 @@ model SquarePost {
   @@map("square_post")
 }
 
-// 7. 공감 종류 (온도 점수 포함)
+// 7. 공감 종류
 model EmpathyType {
   id             BigInt          @id @default(autoincrement())
   name           String          @db.VarChar(20)
