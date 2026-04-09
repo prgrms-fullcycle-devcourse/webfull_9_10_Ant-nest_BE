@@ -1,33 +1,33 @@
-import {
-  Injectable,
-} from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
-
-import {
-  SignupRequestDto,
-} from "./dto/req/signup.request.dto";
-import {
-  SignupResponseDto,
-} from "./dto/res/signup.response.dto";
-import PasswordMismatchException from "../common/exception/password-mismatch.exception"
-import DuplicateEmailException from "../common/exception/duplicate-email.exception"
-import DuplicateNicknameException from "../common/exception/duplicate-nickname.exception"
+import { Member } from "@prisma/client";
+import { SignupRequestDto } from "./dto/req/signup.request.dto";
+import { SignupResponseDto } from "./dto/res/signup.response.dto";
+import PasswordMismatchException from "../common/exception/password-mismatch.exception";
+import DuplicateEmailException from "../common/exception/duplicate-email.exception";
+import DuplicateNicknameException from "../common/exception/duplicate-nickname.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginRequestDto } from "./dto/req/login.request.dto";
 import { LoginResponseDto } from "./dto/res/login.response.dto";
 import { JwtService } from "@nestjs/jwt";
 import EmailNotFoundException from "../common/exception/email-not-found.exception";
 import InvalidPasswordException from "../common/exception/invalid-password.exception";
+import CheckDuplicateNicknameParamsDto from "./dto/req/check-duplicate-nickname.params.dto";
+import CheckDuplicateNicknameResponseDto from "./dto/res/check-duplicate-nickname.response.dto";
+import CheckDuplicateEmailParamsDto from "./dto/req/check-duplicate-email.params.dto";
+import CheckDuplicateEmailResponseDto from "./dto/res/check-duplicate-email.response.dto";
+
+type ExistsMember = Member | null;
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService,
-              private readonly jwtService: JwtService,) {
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   // 회원가입 로직
   async signup(body: SignupRequestDto): Promise<SignupResponseDto> {
-
     // 1. 비밀번호 일치 확인
     if (body.password !== body.checkPassword) {
       throw new PasswordMismatchException();
@@ -65,23 +65,20 @@ export class AuthService {
       },
     });
 
-    return new SignupResponseDto(
-      member.id.toString(),
-    );
+    return new SignupResponseDto(member.id.toString());
   }
 
   // 로그인 로직
   async login(body: LoginRequestDto): Promise<LoginResponseDto> {
-
     // 1. 이메일로 회원 조회
     const member = await this.prisma.member.findUnique({
       where: {
         email: body.email,
-      }
+      },
     });
 
     // 2. 회원이 존재하지 않으면 404
-    if(!member) {
+    if (!member) {
       throw new EmailNotFoundException();
     }
 
@@ -89,10 +86,10 @@ export class AuthService {
     const isPasswordMatching = await bcrypt.compare(
       body.password,
       member.password,
-    )
+    );
 
     // 4. 비밀번호가 틀리면 401
-    if(!isPasswordMatching) {
+    if (!isPasswordMatching) {
       throw new InvalidPasswordException();
     }
 
@@ -108,6 +105,32 @@ export class AuthService {
       member.id.toString(),
       member.nickname,
       this.jwtService.sign(payload),
-    )
+    );
+  }
+
+  // 닉네임 중복 확인
+  async checkDuplicateNickname(
+    paramsDto: CheckDuplicateNicknameParamsDto,
+  ): Promise<CheckDuplicateNicknameResponseDto> {
+    const memberByNickname: ExistsMember = await this.prisma.member.findFirst({
+      where: {
+        nickname: paramsDto.nickname,
+      },
+    });
+
+    return new CheckDuplicateNicknameResponseDto(!!memberByNickname);
+  }
+
+  // 이메일 중복 확인
+  async checkDuplicateEmail(
+    paramsDto: CheckDuplicateEmailParamsDto,
+  ): Promise<CheckDuplicateEmailResponseDto> {
+    const memberByEmail: ExistsMember = await this.prisma.member.findUnique({
+      where: {
+        email: paramsDto.email,
+      },
+    });
+
+    return new CheckDuplicateEmailResponseDto(!!memberByEmail);
   }
 }
