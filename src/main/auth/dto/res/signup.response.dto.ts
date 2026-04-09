@@ -7,9 +7,9 @@ export class SignupResponseDto {
     example: "1",
     description: "생성된 사용자의 고유 식별자 (ID)",
   })
-  userId: string;
+  memberId: string;
 
-  constructor(userId: string) {
-    this.userId = userId;
+  constructor(memberId: string) {
+    this.memberId = memberId;
   }
 }
