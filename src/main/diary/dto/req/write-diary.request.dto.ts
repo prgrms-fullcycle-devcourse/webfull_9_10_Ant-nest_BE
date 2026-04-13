@@ -5,7 +5,7 @@ import {
   IsString,
   Length,
   ArrayMaxSize,
-  IsEnum,
+  IsEnum, MaxLength,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { EmotionType } from "@prisma/client";
@@ -23,7 +23,7 @@ export class WriteDiaryRequestDto {
   })
   @IsString()
   @IsNotEmpty()
-  @Length(10, 700)
+  @MaxLength(700)
   content: string;
 
   @ApiProperty({
