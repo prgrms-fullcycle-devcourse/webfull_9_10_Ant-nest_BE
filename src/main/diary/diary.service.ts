@@ -6,10 +6,25 @@ import { WriteDiaryResponseDto } from "./dto/res/write-diary.response.dto";
 import AlreadyWrittenException from "../common/exception/already-written.exception";
 import EmotionRequiredException from "../common/exception/emotion-required.exception";
 import ContentTooShortException from "../common/exception/content-too-short.exception";
+import { EmotionType } from "@prisma/client";
+import { GetAllDiariesResponseDto } from "./dto/res/get-all-diaries.resposne.dto";
+import { EmotionInfoResponseDto } from "./dto/res/emotion-info.response.dto";
+import { DiarySummaryResponseDto } from "./dto/res/diary-summary.response.dto";
 
 @Injectable()
 export class DiaryService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private getEmotionName(type: EmotionType): string {
+    const names = {
+      [EmotionType.JOY]: "기쁨",
+      [EmotionType.SAD]: "슬픔",
+      [EmotionType.ANGRY]: "화남",
+      [EmotionType.PERPLEXED]: "황당",
+      [EmotionType.FLUTTER]: "설렘",
+    };
+    return names[type];
+  }
 
   // 일기 작성
   async writeDiary(
@@ -63,5 +78,36 @@ export class DiaryService {
     });
 
     return new WriteDiaryResponseDto(result.id.toString());
+  }
+
+  // 전체 일기 목록 조회
+  async getAllDiaries(memberId: bigint): Promise<GetAllDiariesResponseDto> {
+    const diaries = await this.prisma.diary.findMany({
+      where: { memberId },
+      include: {
+        standardQuestion: true,
+      },
+      orderBy: {
+        diaryDate: "desc",
+      },
+    });
+
+    const diarySummaries = diaries.map((d) => {
+      const emotionInfo = new EmotionInfoResponseDto(
+        d.emotion,
+        this.getEmotionName(d.emotion),
+      );
+
+      return new DiarySummaryResponseDto(
+        d.id.toString(),
+        d.title,
+        d.diaryDate.toISOString().split("T")[0],
+        d.isEdited,
+        emotionInfo,
+        d.standardQuestion.content,
+      );
+    });
+
+    return new GetAllDiariesResponseDto(diarySummaries.length, diarySummaries);
   }
 }
