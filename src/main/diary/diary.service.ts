@@ -31,12 +31,16 @@ export class DiaryService {
 
   private getEmotionName(type: EmotionType): string {
     const names = {
-      [EmotionType.JOY]: "기쁨",
-      [EmotionType.SAD]: "슬픔",
+      [EmotionType.ABSURD]: "황당",
       [EmotionType.ANGRY]: "화남",
-      [EmotionType.PERPLEXED]: "황당",
-      [EmotionType.FLUTTER]: "설렘",
-    };
+      [EmotionType.BLANK]: "무념무상",
+      [EmotionType.DEPRESSED]: "우울",
+      [EmotionType.DISGUSTED]: "짜증",
+      [EmotionType.EXCITED]: "설렘",
+      [EmotionType.TIRED]: "지침",
+      [EmotionType.HAPPY]: "기쁨",
+
+  };
     return names[type];
   }
 

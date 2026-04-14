@@ -28,8 +28,8 @@ export class WriteDiaryRequestDto {
 
   @ApiProperty({
     enum: EmotionType,
-    example: EmotionType.JOY,
-    description: "감정 표현 (ANGRY, FLUTTER, JOY, PERPLEXED, SAD)",
+    example: EmotionType.ABSURD,
+    description: "감정 표현 (ABSURD, ANGRY, BLANK, DEPRESSED, DISGUSTED, EXCITED, TIRED, HAPPY)",
   })
   @IsEnum(EmotionType, { message: "올바른 감정을 선택해주세요." })
   @IsNotEmpty({ message: "감정 선택은 필수입니다." })

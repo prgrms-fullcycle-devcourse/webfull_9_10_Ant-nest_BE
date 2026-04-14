@@ -4,7 +4,7 @@ import { EmotionType } from "@prisma/client";
 export class EmotionInfoResponseDto {
   @ApiProperty({
     enum: EmotionType,
-    example: EmotionType.JOY,
+    example: EmotionType.ABSURD,
     description: "감정 타입 (Enum)",
   })
   type: EmotionType;

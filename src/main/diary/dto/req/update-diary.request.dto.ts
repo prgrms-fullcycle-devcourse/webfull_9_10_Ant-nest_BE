@@ -26,7 +26,7 @@ export class UpdateDiaryRequestDto {
   @MaxLength(700)
   content: string;
 
-  @ApiProperty({ enum: EmotionType, example: EmotionType.JOY })
+  @ApiProperty({ enum: EmotionType, example: EmotionType.ABSURD })
   @IsEnum(EmotionType, { message: "올바른 감정 이모지를 선택해주세요." })
   @IsNotEmpty()
   emotion: EmotionType;

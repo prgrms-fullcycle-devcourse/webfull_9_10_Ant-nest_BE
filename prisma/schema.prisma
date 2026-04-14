@@ -9,11 +9,14 @@ datasource db {
 
 // 1. 감정 정의
 enum EmotionType {
+  ABSURD // 황당
   ANGRY // 화남
-  FLUTTER // 설렘
-  JOY // 기쁨
-  PERPLEXED // 황당
-  SAD // 슬픔
+  BLANK // 무념무상 (멍함)
+  DEPRESSED // 우울
+  DISGUSTED // 짜증 (불쾌)
+  EXCITED // 설렘 (신남)
+  TIRED // 지침 (피곤)
+  HAPPY // 기쁨 (행복)
 }
 
 // 2. 사용자
