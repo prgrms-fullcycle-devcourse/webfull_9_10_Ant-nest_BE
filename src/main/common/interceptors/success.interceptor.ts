@@ -1,35 +1,33 @@
 import {
   Injectable,
-  NestInterceptor,
   ExecutionContext,
   CallHandler,
 } from "@nestjs/common";
-import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
-import { Request, Response } from "express";
-import CustomResponse from "../response/custom-response";
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 @Injectable()
-export class SuccessInterceptor<T> implements NestInterceptor<T, any> {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+export class SuccessInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler) {
     const ctx = context.switchToHttp();
-    const request = ctx.getRequest<Request>();
-    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest();
+    const response = ctx.getResponse();
 
     return next.handle().pipe(
-      map((data) => {
-        if (data instanceof CustomResponse) {
-          return {
-            statusCode: response.statusCode,
-            timestamp: new Date().toISOString(),
-            path: request.url,
-            message: data.message,
-            data: data.data,
-            error: data.error,
-          };
-        }
-        return data;
-      }),
+      map((data) => ({
+        statusCode: response.statusCode,
+        // 응답 시점의 시간을 한국 시간으로 포맷팅
+        timestamp: dayjs().tz("Asia/Seoul").format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
+        path: request.url,
+        message: data.message,
+        data: data.data,
+        error: data.error,
+      })),
     );
   }
 }
