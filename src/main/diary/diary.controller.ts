@@ -7,7 +7,8 @@ import {
   UseFilters,
   HttpStatus,
   HttpCode,
-  Get, Param,
+  Get,
+  Param,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 
@@ -24,6 +25,7 @@ import { ApiCustomResponseDecorator } from "../util/decorators/api-custom-respon
 import { GetAllDiariesResponseDto } from "./dto/res/get-all-diaries.resposne.dto";
 import { GetDiaryDetailResponseDto } from "./dto/res/get-diary-detail.response.dto";
 import { ParseBigIntPipe } from "../common/pipe/parse-bigint.pipe";
+import { CheckTodayDiaryResponseDto } from "./dto/res/check-today-diary.response.dto";
 
 @ApiTags("일기")
 @ApiBearerAuth("accessToken")
@@ -73,6 +75,28 @@ export class DiaryController {
       result,
       "일기 목록을 성공적으로 불러왔습니다.",
     );
+  }
+
+  @ApiOperation({
+    summary: "오늘 일기 작성 여부 확인 API",
+    description:
+      "사용자가 오늘 일기를 이미 작성했는지 확인하고, 작성했다면 일기 ID를 반환합니다.",
+  })
+  @ApiCustomResponseDecorator(CheckTodayDiaryResponseDto)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Get("/today")
+  async checkTodayDiary(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CustomResponse<CheckTodayDiaryResponseDto>> {
+    const memberId = BigInt(req.member.id);
+    const result = await this.diaryService.checkTodayDiary(memberId);
+
+    const message = result.isWritten
+      ? "오늘은 이미 일기를 작성했습니다."
+      : "아직 오늘의 일기가 기록되지 않았습니다.";
+
+    return new CustomResponse<CheckTodayDiaryResponseDto>(result, message);
   }
 
   @ApiOperation({

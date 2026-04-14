@@ -13,6 +13,8 @@ import { DiarySummaryResponseDto } from "./dto/res/diary-summary.response.dto";
 import { GetDiaryDetailResponseDto } from "./dto/res/get-diary-detail.response.dto";
 import DiaryNotFoundException from "../common/exception/diary-not-found.exception";
 import { DiaryPhotoResponseDto } from "./dto/res/diary-photo.response.dto";
+import { CheckTodayDiaryResponseDto } from "./dto/res/check-today-diary.response.dto";
+import dayjs from "dayjs";
 
 class ForbiddenDiaryException implements Error {
   message: string;
@@ -170,5 +172,31 @@ export class DiaryService {
       diary.standardQuestion.content,
       photos,
     );
+  }
+
+  // 오늘 일기 작성 여부 확인
+  async checkTodayDiary(memberId: bigint): Promise<CheckTodayDiaryResponseDto> {
+    // 1. 한국 시간 기준 오늘 날짜 (00:00:00) 계산
+    const todayKst = dayjs().tz("Asia/Seoul").startOf("day").toDate();
+
+    // 2. DB에서 해당 사용자의 오늘 날짜 일기가 있는지 조회
+    const diary = await this.prisma.diary.findUnique({
+      where: {
+        memberId_diaryDate: {
+          memberId: memberId,
+          diaryDate: todayKst,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // 3. 결과에 따른 DTO 반환
+    if (diary) {
+      return new CheckTodayDiaryResponseDto(true, diary.id.toString());
+    }
+
+    return new CheckTodayDiaryResponseDto(false, null);
   }
 }
