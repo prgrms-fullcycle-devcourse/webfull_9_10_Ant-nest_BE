@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { TodayQuestionResponseDto } from "./dto/res/today-question.response.dto";
 import NoMoreQuestionsException from "../common/exception/no-more-questions.exception";
@@ -11,57 +11,29 @@ dayjs.extend(timezone);
 
 @Injectable()
 export class QuestionService {
-  constructor(private readonly prisma: PrismaService) {
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   // 오늘의 질문 가져오기 로직
   async getTodayQuestion(memberId: bigint): Promise<TodayQuestionResponseDto> {
-
-    const todayKst = dayjs().tz("Asia/Seoul").format("YYYY-MM-DD");
-
-    // 1. 해당 사용자가 이미 답변한 질문 ID 목록 조회
-    const answeredDiaries = await this.prisma.diary.findMany({
-      where: {
-        memberId: memberId,
-      },
-      select: {
-        questionId: true,
-      }
+    // 1. 사용자가 지금까지 작성한 일기 총 개수 조회
+    const diaryCount = await this.prisma.diary.count({
+      where: { memberId },
     });
 
-    const answeredIds = answeredDiaries.map((d) => d.questionId);
-
-    // 2. 답변하지 않은 질문들 조회
-    const remainingQuestions = await this.prisma.standardQuestion.findMany({
-      where: {
-        id: {
-          notIn: answeredIds
-        },
-      },
+    // 2. 전체 질문을 ID 순으로 정렬했을 때, (diaryCount)만큼 건너뛰고 그 다음 하나를 가져옴
+    const nextQuestion = await this.prisma.standardQuestion.findMany({
+      orderBy: { id: "asc" },
+      skip: diaryCount, // 이미 쓴 개수만큼 건너뜀
+      take: 1,
     });
 
-    // 3. 모든 질문들이 소모 됐을 경우 예외 처리
-    if(remainingQuestions.length === 0) {
+    if (nextQuestion.length === 0) {
       throw new NoMoreQuestionsException();
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
-    const seedBase = memberId.toString() + todayStr;
-
-    let hash = 0;
-    for(let i = 0; i < seedBase.length; i++) {
-      hash = (hash << 5) - hash + seedBase.charCodeAt(i);
-      hash |= 0;
-    }
-
-    const selectedIndex = Math.abs(hash) % remainingQuestions.length;
-    const selectedQuestion = remainingQuestions[selectedIndex];
-
     return new TodayQuestionResponseDto(
-      selectedQuestion.id.toString(),
-      selectedQuestion.content,
-    )
-
+      nextQuestion[0].id.toString(),
+      nextQuestion[0].content,
+    );
   }
-
 }

@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import { UpdateDiaryResponseDto } from "./dto/res/update-diary.response.dto";
 import TitleTooLongException from "../common/exception/title-too-long.exception";
 import { UpdateDiaryRequestDto } from "./dto/req/update-diary.request.dto";
+import InvalidQuestionOrderException from "../common/exception/invalid-question-order.exception";
 
 class ForbiddenDiaryException implements Error {
   message: string;
@@ -48,46 +49,49 @@ export class DiaryService {
     if (!body.emotion) throw new EmotionRequiredException();
     if (body.content.length < 10) throw new ContentTooShortException();
 
-    // 2. 날짜 설정
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // 1. 사용자가 현재 답변해야 할 질문 ID가 무엇인지 서버에서 직접 계산
+    const diaryCount = await this.prisma.diary.count({
+      where: { memberId },
+    });
 
-    // 3. 중복 작성 여부 확인
+    const validQuestion = await this.prisma.standardQuestion.findMany({
+      orderBy: { id: "asc" },
+      skip: diaryCount,
+      take: 1,
+    });
+
+    // 2. 요청받은 questionId와 서버가 계산한 ID가 일치하는지 검증
+    if (
+      validQuestion.length === 0 ||
+      BigInt(body.questionId) !== validQuestion[0].id
+    ) {
+      throw new InvalidQuestionOrderException();
+    }
+
+    const todayKst = dayjs().tz("Asia/Seoul").startOf("day").toDate();
+
+    // 3. 중복 작성 여부 확인 (오늘 이미 썼는지)
     const existingDiary = await this.prisma.diary.findFirst({
-      where: {
-        memberId: memberId,
-        diaryDate: today,
-      },
+      where: { memberId, diaryDate: todayKst },
     });
 
     if (existingDiary) {
       throw new AlreadyWrittenException();
     }
 
-    // 4. 일기 및 사진 저장
+    // 4. 저장 로직 실행
     const result = await this.prisma.$transaction(async (tx) => {
       const diary = await tx.diary.create({
         data: {
-          memberId: memberId,
+          memberId,
           questionId: BigInt(body.questionId),
           title: body.title,
           content: body.content,
           emotion: body.emotion,
-          diaryDate: today,
+          diaryDate: todayKst,
         },
       });
-
-      // 사진이 있다면 저장
-      if (body.photoUrls && body.photoUrls.length > 0) {
-        await tx.diaryPhoto.createMany({
-          data: body.photoUrls.map((url, index) => ({
-            diaryId: diary.id,
-            imageUrl: url,
-            displayOrder: index,
-          })),
-        });
-      }
-
+      // 사진 저장 로직
       return diary;
     });
 
@@ -266,11 +270,7 @@ export class DiaryService {
   }
 
   // 일기 삭제
-  async deleteDiary(
-    diaryId: bigint,
-    memberId: bigint,
-  ): Promise<void> {
-
+  async deleteDiary(diaryId: bigint, memberId: bigint): Promise<void> {
     // 1. 일기 존재 여부 확인
     const diary = await this.prisma.diary.findUnique({
       where: { id: diaryId },
