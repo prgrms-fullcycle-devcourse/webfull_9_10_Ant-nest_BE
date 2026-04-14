@@ -264,4 +264,33 @@ export class DiaryService {
       updated.updatedAt.toISOString(),
     );
   }
+
+  // 일기 삭제
+  async deleteDiary(
+    diaryId: bigint,
+    memberId: bigint,
+  ): Promise<void> {
+
+    // 1. 일기 존재 여부 확인
+    const diary = await this.prisma.diary.findUnique({
+      where: { id: diaryId },
+    });
+
+    // 404 에러 처리
+    if (!diary) {
+      throw new DiaryNotFoundException();
+    }
+
+    // 2. 권한 확인 (본인의 일기인지 체크)
+    // 403 에러 처리
+    if (diary.memberId !== memberId) {
+      throw new ForbiddenDiaryException();
+    }
+
+    // 3. 일기 삭제
+    // (연결된 DiaryPhoto, SquarePost, EmpathyRecord는 CASCADE에 의해 자동 삭제됨)
+    await this.prisma.diary.delete({
+      where: { id: diaryId },
+    });
+  }
 }

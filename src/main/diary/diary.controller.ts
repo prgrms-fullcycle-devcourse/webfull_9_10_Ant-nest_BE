@@ -9,7 +9,7 @@ import {
   HttpCode,
   Get,
   Param,
-  Patch,
+  Patch, Delete,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 
@@ -144,6 +144,28 @@ export class DiaryController {
     return new CustomResponse<UpdateDiaryResponseDto>(
       result,
       "기록이 성공적으로 수정되었습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "일기 삭제 API",
+    description:
+      "일기를 삭제합니다. 연관된 사진과 광장 게시물도 함께 삭제됩니다.",
+  })
+  // 삭제 성공 시 200 OK와 함께 메시지 반환
+  @UseGuards(JwtAuthGuard)
+  @Delete("/:diaryId")
+  async deleteDiary(
+    @Param("diaryId", ParseBigIntPipe) diaryId: bigint,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CustomResponse<void>> {
+    const memberId = BigInt(req.member.id);
+
+    await this.diaryService.deleteDiary(diaryId, memberId);
+
+    return new CustomResponse<void>(
+      undefined,
+      "일기와 공유된 게시물이 모두 삭제되었습니다.",
     );
   }
 }
