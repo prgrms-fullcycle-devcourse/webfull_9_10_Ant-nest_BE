@@ -3,7 +3,28 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 표준 질문 시딩(Seeding) 시작...");
+  console.log("🧹 데이터베이스 초기화 및 시퀀스 리셋 시작...");
+
+  // 1. 모든 테이블 초기화 (ID를 1번으로 리셋)
+  // 외래키 제약 조건을 고려하여 하위 테이블부터 혹은 CASCADE를 사용해 삭제함
+  const tableNames = [
+    "empathy_record",
+    "empathy_type",
+    "square_post",
+    "diary_photo",
+    "diary",
+    "standard_question",
+    "member",
+  ];
+
+  for (const tableName of tableNames) {
+    // RESTART IDENTITY: 시퀀스 번호를 1번으로 초기화하는 핵심 명령어
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`,
+    );
+  }
+
+  console.log("🌱 표준 질문(30개) 시딩 시작...");
 
   const questions = [
     "오늘 하루 중 가장 크게 웃었던 순간은 언제인가요?",
@@ -20,7 +41,7 @@ async function main() {
     "오늘 나를 가장 설레게 했던 소식이나 계획이 있었나요?",
     "오늘 하루 동안 가장 많이 생각난 사람은 누구인가요?",
     "평소보다 조금 더 용기를 냈던 순간이 있었나요?",
-    "오늘 마주친 소리 중 가장 기억에 남는 것은 무엇인가요? (빗소리, 누군가의 웃음소리 등)",
+    "오늘 마주친 소리 중 가장 기억에 남는 것은 무엇인가요? (빗소리, 웃음소리 등)",
     "오늘 내가 발견한 '나의 의외의 모습'이 있다면 무엇인가요?",
     "오늘 누군가에게 전하고 싶었지만 마음속에만 담아둔 말이 있나요?",
     "오늘 하루 중 무언가에 가장 깊이 몰입했던 시간은 언제였나요?",
@@ -32,24 +53,21 @@ async function main() {
     "오늘 다른 사람에게 베푼 작은 친절이나 배려가 있었나요?",
     "오늘 타인에게 받은 호의 중 가장 마음이 따뜻해졌던 순간은 언제인가요?",
     "오늘 하루 중 가장 아쉬웠던 순간을 딱 하나만 골라본다면?",
-    "오늘 나를 가장 편안하게 쉼 쉬게 해준 장소는 어디였나요?",
+    "오늘 나를 가장 편안하게 숨 쉬게 해준 장소는 어디였나요?",
     "최근 들어 나를 가장 미소 짓게 만드는 사소한 습관은 무엇인가요?",
     "내일 아침에 눈을 떴을 때, 어떤 기분으로 하루를 시작하고 싶나요?",
-    "1년 뒤의 내가 오늘의 이 일기를 읽는다면 어떤 말을 해주고 싶을까요?"
+    "1년 뒤의 내가 오늘의 이 일기를 읽는다면 어떤 말을 해주고 싶을까요?",
   ];
 
-  console.log("🧹 기존 질문 데이터를 초기화합니다...");
-  await prisma.standardQuestion.deleteMany({});
-
+  // 질문 등록
   for (const content of questions) {
     await prisma.standardQuestion.create({
       data: { content },
     });
   }
 
-  console.log(
-    `✅ 시딩 완료! 총 ${questions.length}개의 질문이 등록되었습니다.`,
-  );
+  console.log("✅ 모든 초기화 및 시딩이 완료되었습니다!");
+  console.log("📊 등록된 질문 수:", questions.length);
 }
 
 main()
