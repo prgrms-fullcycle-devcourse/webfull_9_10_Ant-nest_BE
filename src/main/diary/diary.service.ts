@@ -15,6 +15,9 @@ import DiaryNotFoundException from "../common/exception/diary-not-found.exceptio
 import { DiaryPhotoResponseDto } from "./dto/res/diary-photo.response.dto";
 import { CheckTodayDiaryResponseDto } from "./dto/res/check-today-diary.response.dto";
 import dayjs from "dayjs";
+import { UpdateDiaryResponseDto } from "./dto/res/update-diary.response.dto";
+import TitleTooLongException from "../common/exception/title-too-long.exception";
+import { UpdateDiaryRequestDto } from "./dto/req/update-diary.request.dto";
 
 class ForbiddenDiaryException implements Error {
   message: string;
@@ -41,6 +44,7 @@ export class DiaryService {
     memberId: bigint,
     body: WriteDiaryRequestDto,
   ): Promise<WriteDiaryResponseDto> {
+    if (body.title.length > 30) throw new TitleTooLongException();
     if (!body.emotion) throw new EmotionRequiredException();
     if (body.content.length < 10) throw new ContentTooShortException();
 
@@ -198,5 +202,66 @@ export class DiaryService {
     }
 
     return new CheckTodayDiaryResponseDto(false, null);
+  }
+
+  // 일기 수정
+  async updateDiary(
+    diaryId: bigint,
+    memberId: bigint,
+    body: UpdateDiaryRequestDto,
+  ): Promise<UpdateDiaryResponseDto> {
+    // 1. 일기 존재 및 권한 확인
+    const diary = await this.prisma.diary.findUnique({
+      where: { id: diaryId },
+    });
+
+    if (!diary) {
+      throw new DiaryNotFoundException();
+    }
+    if (diary.memberId !== memberId) {
+      throw new ForbiddenDiaryException();
+    }
+
+    // 2. 비즈니스 로직 검증 (제목/본문 길이)
+    if (body.title.length > 30) throw new TitleTooLongException();
+    if (body.content.length < 10) throw new ContentTooShortException();
+
+    // 3. 트랜잭션: 일기 정보 수정 및 사진 교체
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 일기 기본 정보 수정 (isEdited를 true로 강제 설정)
+      const diaryUpdate = await tx.diary.update({
+        where: { id: diaryId },
+        data: {
+          title: body.title,
+          content: body.content,
+          emotion: body.emotion,
+          isEdited: true,
+        },
+      });
+
+      // 기존 사진 삭제 후 새로운 사진 등록 (사진 수정 로직의 가장 깔끔한 방식)
+      if (body.photoUrls) {
+        await tx.diaryPhoto.deleteMany({
+          where: { diaryId: diaryId },
+        });
+
+        if (body.photoUrls.length > 0) {
+          await tx.diaryPhoto.createMany({
+            data: body.photoUrls.map((url, index) => ({
+              diaryId: diaryId,
+              imageUrl: url,
+              displayOrder: index,
+            })),
+          });
+        }
+      }
+
+      return diaryUpdate;
+    });
+
+    return new UpdateDiaryResponseDto(
+      updated.id.toString(),
+      updated.updatedAt.toISOString(),
+    );
   }
 }
