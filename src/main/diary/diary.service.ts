@@ -10,6 +10,14 @@ import { EmotionType } from "@prisma/client";
 import { GetAllDiariesResponseDto } from "./dto/res/get-all-diaries.resposne.dto";
 import { EmotionInfoResponseDto } from "./dto/res/emotion-info.response.dto";
 import { DiarySummaryResponseDto } from "./dto/res/diary-summary.response.dto";
+import { GetDiaryDetailResponseDto } from "./dto/res/get-diary-detail.response.dto";
+import DiaryNotFoundException from "../common/exception/diary-not-found.exception";
+import { DiaryPhotoResponseDto } from "./dto/res/diary-photo.response.dto";
+
+class ForbiddenDiaryException implements Error {
+  message: string;
+  name: string;
+}
 
 @Injectable()
 export class DiaryService {
@@ -109,5 +117,58 @@ export class DiaryService {
     });
 
     return new GetAllDiariesResponseDto(diarySummaries.length, diarySummaries);
+  }
+
+  // 일기 상세 조회
+  async getDiaryDetail(
+    diaryId: bigint,
+    memberId: bigint,
+  ): Promise<GetDiaryDetailResponseDto> {
+    // 1. 일기 조회 (질문과 사진 정보를 포함)
+    const diary = await this.prisma.diary.findUnique({
+      where: { id: diaryId },
+      include: {
+        standardQuestion: true,
+        photos: {
+          orderBy: { displayOrder: "asc" },
+        },
+      },
+    });
+
+    // 2. 존재 여부 확인 (404)
+    if (!diary) {
+      throw new DiaryNotFoundException();
+    }
+
+    // 3. 권한 확인 (본인의 일기인지 체크) (403)
+    if (diary.memberId !== memberId) {
+      throw new ForbiddenDiaryException();
+    }
+
+    // 4. 감정 정보 생성
+    const emotionInfo = new EmotionInfoResponseDto(
+      diary.emotion,
+      this.getEmotionName(diary.emotion),
+    );
+
+    // 5. 사진 정보 매핑
+    const photos = diary.photos.map(
+      (p) =>
+        new DiaryPhotoResponseDto(p.id.toString(), p.imageUrl, p.displayOrder),
+    );
+
+    // 6. 최종 DTO 반환
+    return new GetDiaryDetailResponseDto(
+      diary.id.toString(),
+      diary.title,
+      diary.content,
+      diary.diaryDate.toISOString().split("T")[0],
+      diary.isEdited,
+      diary.createdAt.toISOString(),
+      diary.isEdited ? diary.updatedAt.toISOString() : null, // 수정되지 않았으면 null
+      emotionInfo,
+      diary.standardQuestion.content,
+      photos,
+    );
   }
 }

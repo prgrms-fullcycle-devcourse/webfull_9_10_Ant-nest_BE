@@ -7,7 +7,7 @@ import {
   UseFilters,
   HttpStatus,
   HttpCode,
-  Get,
+  Get, Param,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 
@@ -22,6 +22,8 @@ import { AllExceptionsFilter } from "../common/filters/http-exception.filter";
 import { Req } from "@nestjs/common";
 import { ApiCustomResponseDecorator } from "../util/decorators/api-custom-response.decorator";
 import { GetAllDiariesResponseDto } from "./dto/res/get-all-diaries.resposne.dto";
+import { GetDiaryDetailResponseDto } from "./dto/res/get-diary-detail.response.dto";
+import { ParseBigIntPipe } from "../common/pipe/parse-bigint.pipe";
 
 @ApiTags("일기")
 @ApiBearerAuth("accessToken")
@@ -70,6 +72,28 @@ export class DiaryController {
     return new CustomResponse<GetAllDiariesResponseDto>(
       result,
       "일기 목록을 성공적으로 불러왔습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "일기 상세 조회 API",
+    description:
+      "특정 일기의 상세 내용(제목, 본문, 감정, 사진, 질문)을 조회합니다.",
+  })
+  @ApiCustomResponseDecorator(GetDiaryDetailResponseDto)
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Get("/:diaryId")
+  async getDiaryDetail(
+    @Param("diaryId", ParseBigIntPipe) diaryId: bigint,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CustomResponse<GetDiaryDetailResponseDto>> {
+    const memberId = BigInt(req.member.id);
+    const result = await this.diaryService.getDiaryDetail(diaryId, memberId);
+
+    return new CustomResponse<GetDiaryDetailResponseDto>(
+      result,
+      "일기 정보를 성공적으로 불러왔습니다.",
     );
   }
 }
