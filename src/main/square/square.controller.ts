@@ -1,6 +1,6 @@
 import {
   Body,
-  Controller,
+  Controller, Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -111,4 +111,26 @@ export class SquareController {
       "따뜻한 공감이 전달되었습니다.",
     );
   }
+
+  @ApiOperation({
+    summary: "공감 취소 API",
+    description: "게시물에 남겼던 공감을 취소합니다. (이미 선택한 버튼을 다시 누를 때 사용)",
+  })
+  @UseGuards(JwtAuthGuard)
+  @Delete("/posts/:postId/empathies")
+  async deleteEmpathy(
+    @Param("postId", ParseBigIntPipe) postId: bigint,
+    @Req() req: jwtTypes.AuthenticatedRequest,
+  ): Promise<CustomResponse<void>> {
+
+    const memberId = BigInt(req.member.id);
+
+    await this.squareService.deleteEmpathy(postId, memberId);
+
+    return new CustomResponse<void>(
+      undefined,
+      "공감이 취소되었습니다.",
+    );
+  }
+
 }

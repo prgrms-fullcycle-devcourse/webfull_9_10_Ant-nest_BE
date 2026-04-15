@@ -21,6 +21,7 @@ import { CreateEmpathyRequestDto } from "./dto/req/create-empathy.request.dto";
 import { CreateEmpathyResponseDto } from "./dto/res/create-empathy.response.dto";
 import SquarePostNotFoundException from "../common/exception/square-post-not-found.exception";
 import InvalidEmpathyTypeException from "../common/exception/invalid-empathy-type.exception";
+import EmpathyRecordNotFoundException from "../common/exception/empathy-record-not-found.exception";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -220,8 +221,36 @@ export class SquareService {
     });
 
     return new CreateEmpathyResponseDto(
-      existingRecord ? "UPDATED": "CREATED",
+      existingRecord ? "UPDATED" : "CREATED",
       totalCount,
-    )
+    );
+  }
+
+  // 공감 취소
+  async deleteEmpathy(postId: bigint, memberId: bigint): Promise<void> {
+    // 1. 사용자가 게시물에 남긴 공감이 있는지 확인
+    const existingRecord = await this.prisma.empathyRecord.findUnique({
+      where: {
+        memberId_postId: {
+          memberId: memberId,
+          postId: postId,
+        },
+      },
+    });
+
+    // 2. 기록이 없으면 404 예외 발생
+    if (!existingRecord) {
+      throw new EmpathyRecordNotFoundException();
+    }
+
+    // 3. 공감 기록 삭제
+    await this.prisma.empathyRecord.delete({
+      where: {
+        memberId_postId: {
+          memberId: memberId,
+          postId: postId,
+        },
+      },
+    });
   }
 }
