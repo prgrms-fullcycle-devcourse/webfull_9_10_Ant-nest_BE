@@ -5,8 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🧹 데이터베이스 초기화 및 시퀀스 리셋 시작...");
 
-  // 1. 모든 테이블 초기화 (ID를 1번으로 리셋)
-  // 외래키 제약 조건을 고려하여 하위 테이블부터 혹은 CASCADE를 사용해 삭제함
+  // 삭제 및 초기화 순서 (외래키 제약 조건 고려)
   const tableNames = [
     "empathy_record",
     "empathy_type",
@@ -18,14 +17,14 @@ async function main() {
   ];
 
   for (const tableName of tableNames) {
-    // RESTART IDENTITY: 시퀀스 번호를 1번으로 초기화하는 핵심 명령어
+    // RESTART IDENTITY를 통해 ID를 1번부터 다시 시작하게 함
     await prisma.$executeRawUnsafe(
       `TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`,
     );
   }
 
-  console.log("🌱 표준 질문(30개) 시딩 시작...");
-
+  // 1. 표준 질문 시딩 (30개)
+  console.log("🌱 표준 질문(30개) 시딩 중...");
   const questions = [
     "오늘 하루 중 가장 크게 웃었던 순간은 언제인가요?",
     "오늘 먹은 음식 중 가장 만족스러웠던 메뉴와 그 이유는 무엇인가요?",
@@ -59,15 +58,27 @@ async function main() {
     "1년 뒤의 내가 오늘의 이 일기를 읽는다면 어떤 말을 해주고 싶을까요?",
   ];
 
-  // 질문 등록
   for (const content of questions) {
-    await prisma.standardQuestion.create({
-      data: { content },
-    });
+    await prisma.standardQuestion.create({ data: { content } });
+  }
+
+  // 2. 공감 종류 시딩 (5종 - 이름만 저장)
+  console.log("🌸 광장 공감 종류(5종) 시딩 중...");
+  const empathyTypes = [
+    { name: "화남" }, // ID: 1
+    { name: "설렘" }, // ID: 2
+    { name: "신남" }, // ID: 3
+    { name: "황당" }, // ID: 4
+    { name: "슬픔" }, // ID: 5
+  ];
+
+  for (const type of empathyTypes) {
+    await prisma.empathyType.create({ data: type });
   }
 
   console.log("✅ 모든 초기화 및 시딩이 완료되었습니다!");
   console.log("📊 등록된 질문 수:", questions.length);
+  console.log("🌸 등록된 공감 종류:", empathyTypes.length);
 }
 
 main()

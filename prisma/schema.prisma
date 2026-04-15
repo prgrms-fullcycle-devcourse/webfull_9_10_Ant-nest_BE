@@ -7,19 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. 감정 정의
+// 1. 일기 작성 시 본인이 선택하는 감정 (8종)
 enum EmotionType {
   ABSURD // 황당
   ANGRY // 화남
-  BLANK // 무념무상 (멍함)
+  BLANK // 무념무상
   DEPRESSED // 우울
-  DISGUSTED // 짜증 (불쾌)
-  EXCITED // 설렘 (신남)
-  TIRED // 지침 (피곤)
-  HAPPY // 기쁨 (행복)
+  DISGUSTED // 짜증
+  EXCITED // 설렘
+  TIRED // 지침
+  HAPPY // 기쁨
 }
 
-// 2. 사용자
+// 2. 사용자 모델
 model Member {
   id        BigInt   @id @default(autoincrement())
   email     String   @unique @db.VarChar(50)
@@ -43,14 +43,14 @@ model StandardQuestion {
   @@map("standard_question")
 }
 
-// 4. 일기
+// 4. 일기 모델
 model Diary {
   id        BigInt   @id @default(autoincrement())
   title     String   @db.VarChar(30)
   content   String   @db.Text
   diaryDate DateTime @map("diary_date") @db.Date
 
-  emotion EmotionType
+  emotion EmotionType // 8종 Enum 사용
 
   isEdited  Boolean  @default(false) @map("is_edited")
   createdAt DateTime @default(now()) @map("created_at")
@@ -95,18 +95,16 @@ model SquarePost {
   @@map("square_post")
 }
 
-// 7. 공감 종류
+// 7. 공감 종류 (5종 리액션 마스터 테이블)
 model EmpathyType {
   id             BigInt          @id @default(autoincrement())
-  name           String          @db.VarChar(20)
-  emojiUrl       String          @map("emoji_url") @db.Text
-  score          Int             @default(0)
+  name           String          @db.VarChar(20) // "설렘", "신남" 등
   empathyRecords EmpathyRecord[]
 
   @@map("empathy_type")
 }
 
-// 8. 공감 기록
+// 8. 공감 기록 (유저가 게시글에 남긴 실제 데이터)
 model EmpathyRecord {
   id        BigInt   @id @default(autoincrement())
   memberId  BigInt   @map("member_id")
