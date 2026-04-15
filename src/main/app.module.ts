@@ -6,6 +6,9 @@ import { QuestionModule } from "./question/question.module";
 import { SquareService } from "./square/square.service";
 import { SquareController } from "./square/square.controller";
 import { SquareModule } from "./square/square.module";
+import { MemberService } from './member/member.service';
+import { MemberController } from './member/member.controller';
+import { MemberModule } from './member/member.module';
 
 @Module({
   imports: [
@@ -14,8 +17,9 @@ import { SquareModule } from "./square/square.module";
     DiaryModule,
     QuestionModule,
     SquareModule,
+    MemberModule,
   ],
-  controllers: [SquareController],
-  providers: [SquareService],
+  controllers: [SquareController, MemberController],
+  providers: [SquareService, MemberService],
 })
 export class AppModule {}
