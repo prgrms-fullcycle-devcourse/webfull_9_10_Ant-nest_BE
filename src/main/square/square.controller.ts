@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseFilters,
@@ -25,6 +26,8 @@ import { SquareService } from "./square.service";
 import * as jwtTypes from "../auth/jwt/jwt.types";
 import { SquarePostListResponseDto } from "./dto/res/suqare-post-list.response.dto";
 import { GetSquarePostsQueryDto } from "./dto/req/get-square-posts-query.dto";
+import { CreateEmpathyResponseDto } from "./dto/res/create-empathy.response.dto";
+import { CreateEmpathyRequestDto } from "./dto/req/create-empathy.request.dto";
 
 @ApiTags("달래 광장")
 @ApiBearerAuth("accessToken")
@@ -79,6 +82,33 @@ export class SquareController {
     return new CustomResponse<ShareDiaryResponseDto>(
       result,
       "광장 공유 상태가 변경되었습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "공감 남기기 및 변경 API",
+    description:
+      "특정 게시물에 공감을 남깁니다. 이미 공감한 경우 종류가 변경됩니다.",
+  })
+  @ApiCustomResponseDecorator(CreateEmpathyResponseDto)
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Post("/posts/:postId/empathies")
+  async createEmpathy(
+    @Param("postId", ParseBigIntPipe) postId: bigint,
+    @Req() req: jwtTypes.AuthenticatedRequest,
+    @Body() body: CreateEmpathyRequestDto,
+  ): Promise<CustomResponse<CreateEmpathyResponseDto>> {
+    const memberId = BigInt(req.member.id);
+    const result = await this.squareService.createOrUpdateEmpathy(
+      postId,
+      memberId,
+      body,
+    );
+
+    return new CustomResponse<CreateEmpathyResponseDto>(
+      result,
+      "따뜻한 공감이 전달되었습니다.",
     );
   }
 }

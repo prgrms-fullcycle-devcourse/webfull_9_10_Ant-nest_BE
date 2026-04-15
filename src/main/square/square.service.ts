@@ -17,6 +17,10 @@ import {
 import { SquarePostListResponseDto } from "./dto/res/suqare-post-list.response.dto";
 import { EmpathyStatResponseDto } from "./dto/res/empathy-stat.response.dto";
 import { EmotionInfoResponseDto } from "../diary/dto/res/emotion-info.response.dto";
+import { CreateEmpathyRequestDto } from "./dto/req/create-empathy.request.dto";
+import { CreateEmpathyResponseDto } from "./dto/res/create-empathy.response.dto";
+import SquarePostNotFoundException from "../common/exception/square-post-not-found.exception";
+import InvalidEmpathyTypeException from "../common/exception/invalid-empathy-type.exception";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -88,7 +92,6 @@ export class SquareService {
     memberId: bigint,
     query: GetSquarePostsQueryDto,
   ): Promise<SquarePostListResponseDto[]> {
-
     const todayStr = dayjs().tz("Asia/Seoul").format("YYYY-MM-DD");
     const todayKstDate = new Date(`${todayStr}T00:00:00Z`);
 
@@ -156,5 +159,69 @@ export class SquareService {
     }
 
     return result.sort((a, b) => Number(BigInt(b.postId) - BigInt(a.postId)));
+  }
+
+  // 공감 남기기 및 변경
+  async createOrUpdateEmpathy(
+    postId: bigint,
+    memberId: bigint,
+    body: CreateEmpathyRequestDto,
+  ): Promise<CreateEmpathyResponseDto> {
+    // 1. 게시물 존재 및 활성화 여부 확인
+    const post = await this.prisma.squarePost.findUnique({
+      where: {
+        id: postId,
+      },
+    });
+
+    if (!post || !post.isActive) {
+      throw new SquarePostNotFoundException();
+    }
+
+    // 2. 유효한 공감 종류 확인
+    const typeId = BigInt(body.empathyTypeId);
+    const empathyType = await this.prisma.empathyType.findUnique({
+      where: { id: typeId },
+    });
+
+    if (!empathyType) {
+      throw new InvalidEmpathyTypeException();
+    }
+
+    // 3. 공감 남기기 또는 변경
+    const existingRecord = await this.prisma.empathyRecord.findUnique({
+      where: {
+        memberId_postId: {
+          memberId,
+          postId,
+        },
+      },
+    });
+
+    await this.prisma.empathyRecord.upsert({
+      where: {
+        memberId_postId: { memberId, postId },
+      },
+      update: {
+        typeId: typeId,
+      },
+      create: {
+        memberId: memberId,
+        postId: postId,
+        typeId: typeId,
+      },
+    });
+
+    // 4. 변경 후 이 게시물의 전체 공감 개수 조회
+    const totalCount = await this.prisma.empathyRecord.count({
+      where: {
+        postId: postId,
+      },
+    });
+
+    return new CreateEmpathyResponseDto(
+      existingRecord ? "UPDATED": "CREATED",
+      totalCount,
+    )
   }
 }
