@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
+  Query,
   Req,
   UseFilters,
   UseGuards,
@@ -21,6 +23,8 @@ import { SuccessInterceptor } from "../common/interceptors/success.interceptor";
 import { AllExceptionsFilter } from "../common/filters/http-exception.filter";
 import { SquareService } from "./square.service";
 import * as jwtTypes from "../auth/jwt/jwt.types";
+import { SquarePostListResponseDto } from "./dto/res/suqare-post-list.response.dto";
+import { GetSquarePostsQueryDto } from "./dto/req/get-square-posts-query.dto";
 
 @ApiTags("달래 광장")
 @ApiBearerAuth("accessToken")
@@ -29,6 +33,28 @@ import * as jwtTypes from "../auth/jwt/jwt.types";
 @UseFilters(AllExceptionsFilter)
 export class SquareController {
   constructor(private readonly squareService: SquareService) {}
+
+  @ApiOperation({
+    summary: "오늘의 광장 피드 조회 API",
+    description:
+      "오늘 공유된 모든 사용자의 익명 일기를 조회합니다. 인기순(공감 개수 합산)/최신순 정렬을 지원합니다.",
+  })
+  @ApiCustomResponseDecorator(SquarePostListResponseDto)
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Get("/posts")
+  async getSquarePosts(
+    @Req() req: jwtTypes.AuthenticatedRequest,
+    @Query() query: GetSquarePostsQueryDto,
+  ): Promise<CustomResponse<SquarePostListResponseDto[]>> {
+    const memberId = BigInt(req.member.id);
+    const result = await this.squareService.getSquarePosts(memberId, query);
+
+    return new CustomResponse<SquarePostListResponseDto[]>(
+      result,
+      "광장 피드를 성공적으로 불러왔습니다.",
+    );
+  }
 
   @ApiOperation({
     summary: "광장 게시글 공유 토글 API",
