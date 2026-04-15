@@ -4,6 +4,9 @@ import dayjs from "dayjs";
 import { MyPageResponseDto } from "./dto/res/my-page-response.dto";
 import MemberNotFoundException from "../common/exception/member-not-found.exception";
 import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
+import { UpdateNicknameRequestDto } from "./dto/req/update-nickname.request.dto";
+import { UpdateNicknameResponseDto } from "./dto/res/update-nickname.response.dto";
+import { DuplicateNicknameException } from "../common/exception/auth.exception";
 
 @Injectable()
 export class MemberService {
@@ -151,5 +154,37 @@ export class MemberService {
         post.isActive,
       );
     });
+  }
+
+  // 닉네임 수정
+  async updateNickname(
+    memberId: bigint,
+    body: UpdateNicknameRequestDto,
+  ): Promise<UpdateNicknameResponseDto> {
+    // 1. 닉네임 중복 확인
+    const existingMember = await this.prisma.member.findFirst({
+      where: {
+        nickname: body.nickname,
+        NOT: {
+          id: memberId,
+        },
+      },
+    });
+
+    if (existingMember) {
+      throw new DuplicateNicknameException();
+    }
+
+    // 2. 닉네임 업데이트
+    const updateMember = await this.prisma.member.update({
+      where: {
+        id: memberId,
+      },
+      data: {
+        nickname: body.nickname,
+      },
+    });
+
+    return new UpdateNicknameResponseDto(updateMember.nickname);
   }
 }
