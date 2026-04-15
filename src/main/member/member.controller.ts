@@ -1,6 +1,7 @@
 import {
   Controller,
-  Get, HttpCode,
+  Get,
+  HttpCode,
   HttpStatus,
   Req,
   UseFilters,
@@ -17,6 +18,7 @@ import { SuccessInterceptor } from "../common/interceptors/success.interceptor";
 import { AllExceptionsFilter } from "../common/filters/http-exception.filter";
 import { MyPageResponseDto } from "./dto/res/my-page-response.dto";
 import { ApiCustomResponseDecorator } from "../util/decorators/api-custom-response.decorator";
+import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
 
 @ApiTags("마이페이지")
 @ApiBearerAuth("accessToken")
@@ -45,6 +47,27 @@ export class MemberController {
     return new CustomResponse<MyPageResponseDto>(
       result,
       "마이페이지 정보를 성공적으로 불러왔습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "나의 광장 공유 이력 조회 API",
+    description:
+      "내가 광장에 공유했던 모든 일기 리스트와 받은 공감 수를 조회합니다.",
+  })
+  @ApiCustomResponseDecorator(MySquareHistoryResponseDto)
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Get("/me/square-history")
+  async getMySquareHistory(
+    @Req() req: jwtTypes.AuthenticatedRequest,
+  ): Promise<CustomResponse<MySquareHistoryResponseDto[]>> {
+    const memberId = BigInt(req.member.id);
+    const result = await this.memberService.getMySquareHistory(memberId);
+
+    return new CustomResponse<MySquareHistoryResponseDto[]>(
+      result,
+      "광장 공유 이력을 성공적으로 불러왔습니다.",
     );
   }
 }

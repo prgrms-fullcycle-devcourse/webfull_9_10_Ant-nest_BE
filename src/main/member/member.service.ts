@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import dayjs from "dayjs";
 import { MyPageResponseDto } from "./dto/res/my-page-response.dto";
 import MemberNotFoundException from "../common/exception/member-not-found.exception";
+import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
 
 @Injectable()
 export class MemberService {
@@ -110,5 +111,45 @@ export class MemberService {
       receivedEmpathies,
       monthlyEmotions,
     );
+  }
+
+  // 광장 공유 이력 조회
+  async getMySquareHistory(
+    memberId: bigint,
+  ): Promise<MySquareHistoryResponseDto[]> {
+    // 1. 해당 사용자의 일기와 연결된 모든 광장 게시물 조회
+    const history = await this.prisma.squarePost.findMany({
+      where: {
+        diary: {
+          memberId: memberId,
+        },
+      },
+      include: {
+        diary: true,
+        _count: {
+          select: {
+            empathyRecords: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc", // 최신 공유순
+      },
+    });
+
+    // 2. 응답 DTO
+    return history.map((post) => {
+      return new MySquareHistoryResponseDto(
+        post.id.toString(),
+        post.diaryId.toString(),
+        post.diary.title,
+        post.diary.content,
+        post._count.empathyRecords,
+        dayjs(post.createdAt)
+          .tz("Asia/Seoul")
+          .format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
+        post.isActive,
+      );
+    });
   }
 }
