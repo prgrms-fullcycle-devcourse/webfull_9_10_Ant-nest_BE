@@ -23,6 +23,8 @@ import { ApiCustomResponseDecorator } from "../util/decorators/api-custom-respon
 import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
 import { UpdateNicknameResponseDto } from "./dto/res/update-nickname.response.dto";
 import { UpdateNicknameRequestDto } from "./dto/req/update-nickname.request.dto";
+import { AuthenticatedRequest } from "../auth/jwt/jwt.types";
+import { UpdatePasswordRequestDto } from "./dto/req/update-password.request.dto";
 
 @ApiTags("마이페이지")
 @ApiBearerAuth("accessToken")
@@ -94,6 +96,28 @@ export class MemberController {
     return new CustomResponse<MySquareHistoryResponseDto[]>(
       result,
       "광장 공유 이력을 성공적으로 불러왔습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "비밀번호 변경 API",
+    description:
+      "현재 비밀번호를 확인한 후, 규약에 맞는 새 비밀번호로 변경합니다.",
+  })
+  @ApiCustomResponseDecorator()
+  @UseGuards(JwtAuthGuard)
+  @Patch("/me/password")
+  async updatePassword(
+    @Req() req: jwtTypes.AuthenticatedRequest,
+    @Body() body: UpdatePasswordRequestDto,
+  ): Promise<CustomResponse<void>> {
+    const memberId = BigInt(req.member.id);
+
+    await this.memberService.updatePassword(memberId, body);
+
+    return new CustomResponse<void>(
+      undefined,
+      "비밀번호가 성공적으로 변경되었습니다.",
     );
   }
 }

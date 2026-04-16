@@ -1,12 +1,19 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import dayjs from "dayjs";
+import * as bcrypt from "bcrypt";
 import { MyPageResponseDto } from "./dto/res/my-page-response.dto";
 import MemberNotFoundException from "../common/exception/member-not-found.exception";
 import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
 import { UpdateNicknameRequestDto } from "./dto/req/update-nickname.request.dto";
 import { UpdateNicknameResponseDto } from "./dto/res/update-nickname.response.dto";
-import { DuplicateNicknameException } from "../common/exception/auth.exception";
+import {
+  DuplicateNicknameException,
+  PasswordMismatchException,
+} from "../common/exception/auth.exception";
+import { UpdatePasswordRequestDto } from "./dto/req/update-password.request.dto";
+import InvalidPasswordException from "../common/exception/invalid-password.exception";
+import SamePasswordException from "../common/exception/same-password.exception";
 
 @Injectable()
 export class MemberService {
@@ -186,5 +193,51 @@ export class MemberService {
     });
 
     return new UpdateNicknameResponseDto(updateMember.nickname);
+  }
+
+  // 비밀번호 변경
+  async updatePassword(
+    memberId: bigint,
+    body: UpdatePasswordRequestDto,
+  ): Promise<void> {
+    if (body.currentPassword === body.newPassword) {
+      throw new SamePasswordException();
+    }
+
+    // 1. 회원 정보 조회
+    const member = await this.prisma.member.findUnique({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!member) throw new MemberNotFoundException();
+
+    // 2. 현재 비밀번호 일치 여부 확인
+    const isCurrentPasswordValid = await bcrypt.compare(
+      body.currentPassword,
+      member.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new InvalidPasswordException();
+    }
+
+    // 3. 새 비밀번호와 확인용 비밀번호 일치 여부 확인
+    if (body.newPassword !== body.checkPassword) {
+      throw new PasswordMismatchException();
+    }
+
+    // 4. 새 비밀번호 암호화 및 업데이트
+    const hashedPassword = await bcrypt.hash(body.newPassword, 10);
+
+    await this.prisma.member.update({
+      where: {
+        id: memberId,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
   }
 }
