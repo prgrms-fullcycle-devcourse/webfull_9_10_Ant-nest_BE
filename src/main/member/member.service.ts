@@ -240,4 +240,25 @@ export class MemberService {
       },
     });
   }
+
+  // 회원 탈퇴
+  async deleteMember(memberId: bigint): Promise<void> {
+    // 1. 회원 확인
+    const member = await this.prisma.member.findUnique({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!member) {
+      throw new MemberNotFoundException();
+    }
+
+    // 2. 회원 삭제
+    await this.prisma.member.delete({
+      where: {
+        id: memberId,
+      },
+    });
+  }
 }

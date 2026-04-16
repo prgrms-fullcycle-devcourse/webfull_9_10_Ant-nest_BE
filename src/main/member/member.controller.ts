@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -118,6 +119,27 @@ export class MemberController {
     return new CustomResponse<void>(
       undefined,
       "비밀번호가 성공적으로 변경되었습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "회원 탈퇴 API",
+    description:
+      "계정을 삭제합니다. 작성한 모든 일기와 활동 기록이 영구 삭제되며 복구할 수 없습니다.",
+  })
+  @ApiCustomResponseDecorator()
+  @UseGuards(JwtAuthGuard)
+  @Delete("/me")
+  async deleteMember(
+    @Req() req: jwtTypes.AuthenticatedRequest,
+  ): Promise<CustomResponse<void>> {
+    const memberId = BigInt(req.member.id);
+
+    await this.memberService.deleteMember(memberId);
+
+    return new CustomResponse<void>(
+      undefined,
+      "그동안 함께해주셔서 감사합니다. 회원 탈퇴가 완료되었습니다.",
     );
   }
 }
