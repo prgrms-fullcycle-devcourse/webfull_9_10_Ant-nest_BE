@@ -10,6 +10,12 @@ export class SquarePostListResponseDto {
   @ApiProperty({ example: "105" })
   diaryId: string;
 
+  @ApiProperty({
+    example: "오늘 하루 중 가장 크게 웃었던 순간은 언제인가요?",
+    description: "질문 내용"
+  })
+  question: string;
+
   @ApiProperty({ example: "사당역에서 본 노을" })
   title: string;
 
@@ -43,6 +49,7 @@ export class SquarePostListResponseDto {
   constructor(
     postId: string,
     diaryId: string,
+    question: string,
     title: string,
     content: string,
     emotion: EmotionInfoResponseDto,
@@ -55,6 +62,7 @@ export class SquarePostListResponseDto {
   ) {
     this.postId = postId;
     this.diaryId = diaryId;
+    this.question = question;
     this.title = title;
     this.content = content;
     this.emotion = emotion;

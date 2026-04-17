@@ -158,7 +158,11 @@ export class SquareService {
         },
       },
       include: {
-        diary: true,
+        diary: {
+          include: {
+            standardQuestion: true,
+          },
+        },
         empathyRecords: {
           include: { empathyType: true },
         },
@@ -180,6 +184,7 @@ export class SquareService {
         return new SquarePostListResponseDto(
           post.id.toString(),
           post.diaryId.toString(),
+          post.diary.standardQuestion.content,
           post.diary.title,
           post.diary.content,
           emotionInfo,
