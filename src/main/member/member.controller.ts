@@ -5,7 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Patch,
+  Patch, Query,
   Req,
   UseFilters,
   UseGuards,
@@ -24,8 +24,9 @@ import { ApiCustomResponseDecorator } from "../util/decorators/api-custom-respon
 import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response.dto";
 import { UpdateNicknameResponseDto } from "./dto/res/update-nickname.response.dto";
 import { UpdateNicknameRequestDto } from "./dto/req/update-nickname.request.dto";
-import { AuthenticatedRequest } from "../auth/jwt/jwt.types";
 import { UpdatePasswordRequestDto } from "./dto/req/update-password.request.dto";
+import { MonthlyEmotionResponseDto } from "./dto/res/montly-emotion.response.dto";
+import dayjs from "dayjs";
 
 @ApiTags("마이페이지")
 @ApiBearerAuth("accessToken")
@@ -97,6 +98,32 @@ export class MemberController {
     return new CustomResponse<MySquareHistoryResponseDto[]>(
       result,
       "광장 공유 이력을 성공적으로 불러왔습니다.",
+    );
+  }
+
+  @ApiOperation({
+    summary: "월간 감정 현황 조회 API",
+    description: "특정 월의 1일부터 말일까지 작성된 일기의 감정 아이디를 리스트로 반환합니다. 기록이 없으면 null을 반환합니다.",
+  })
+  @ApiCustomResponseDecorator(MonthlyEmotionResponseDto)
+  @UseGuards(JwtAuthGuard)
+  @Get("/me/monthly-emotions")
+  async getMonthlyEmotions(
+    @Req() req: jwtTypes.AuthenticatedRequest,
+    @Query("year") year: number,
+    @Query("month") month: number,
+  ): Promise<CustomResponse<MonthlyEmotionResponseDto>> {
+
+    const memberId = BigInt(req.member.id);
+
+    const targetYear = year || dayjs().tz("Asia/Seoul").year();
+    const targetMonth = month || dayjs().tz("Asia/Seoul").month() + 1;
+
+    const result = await this.memberService.getMonthlyEmotions(memberId, targetYear, targetMonth);
+
+    return new CustomResponse<MonthlyEmotionResponseDto>(
+      result,
+      `${targetYear}년 ${targetMonth}월 감정 현황을 불러왔습니다.`,
     );
   }
 

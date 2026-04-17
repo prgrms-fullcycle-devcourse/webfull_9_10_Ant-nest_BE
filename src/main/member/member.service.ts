@@ -16,10 +16,29 @@ import InvalidPasswordException from "../common/exception/invalid-password.excep
 import SamePasswordException from "../common/exception/same-password.exception";
 import { EmpathyStatResponseDto } from "../square/dto/res/empathy-stat.response.dto";
 import { EmotionType } from "@prisma/client";
+import {
+  DayEmotionDto,
+  MonthlyEmotionResponseDto,
+} from "./dto/res/montly-emotion.response.dto";
+import { EmotionInfoResponseDto } from "../diary/dto/res/emotion-info.response.dto";
 
 @Injectable()
 export class MemberService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private getEmotionName(type: EmotionType): string {
+    const names = {
+      [EmotionType.ABSURD]: "황당",
+      [EmotionType.ANGRY]: "화남",
+      [EmotionType.BLANK]: "무념무상",
+      [EmotionType.DEPRESSED]: "우울",
+      [EmotionType.DISGUSTED]: "짜증",
+      [EmotionType.EXCITED]: "설렘",
+      [EmotionType.TIRED]: "지침",
+      [EmotionType.HAPPY]: "기쁨",
+    };
+    return names[type];
+  }
 
   async getMyPageInfo(memberId: bigint): Promise<MyPageResponseDto> {
     const today = dayjs().tz("Asia/Seoul").startOf("day");
@@ -287,5 +306,56 @@ export class MemberService {
         id: memberId,
       },
     });
+  }
+
+  // 월간 감정 현황 조회
+  async getMonthlyEmotions(
+    memberId: bigint,
+    year: number,
+    month: number,
+  ): Promise<MonthlyEmotionResponseDto> {
+    // 1. 해당 월의 시작일과 종료일 계산 (KST 기준)
+    const targetDate = dayjs()
+      .tz("Asia/Seoul")
+      .year(year)
+      .month(month - 1);
+    const startOfMonth = targetDate.startOf("month").toDate();
+    const endOfMonth = targetDate.endOf("month").toDate();
+    const daysInMonth = targetDate.daysInMonth();
+
+    // 2. 해당 기간의 일기 목록 조회
+    const diaries = await this.prisma.diary.findMany({
+      where: {
+        memberId: memberId,
+        diaryDate: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      select: {
+        diaryDate: true,
+        emotion: true,
+      },
+    });
+
+    // 3. 1일부터 말일까지 순회하며 데이터 매핑
+    const days: DayEmotionDto[] = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const diaryFound = diaries.find(
+        (diary) => dayjs(diary.diaryDate).tz("Asia/Seoul").date() === d,
+      );
+
+      if (diaryFound) {
+        const emotionInfo = new EmotionInfoResponseDto(
+          diaryFound.emotion,
+          this.getEmotionName(diaryFound.emotion),
+        );
+        days.push(new DayEmotionDto(d, emotionInfo));
+      } else {
+        days.push(new DayEmotionDto(d, null));
+      }
+    }
+    return new MonthlyEmotionResponseDto(year, month, days);
   }
 }
