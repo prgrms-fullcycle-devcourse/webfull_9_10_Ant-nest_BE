@@ -19,7 +19,7 @@ import { EmotionType } from "@prisma/client";
 import {
   DayEmotionDto,
   MonthlyEmotionResponseDto,
-} from "./dto/res/montly-emotion.response.dto";
+} from "./dto/res/monthly-emotion.response.dto";
 import { EmotionInfoResponseDto } from "../diary/dto/res/emotion-info.response.dto";
 
 @Injectable()
@@ -333,6 +333,7 @@ export class MemberService {
         },
       },
       select: {
+        id: true,
         diaryDate: true,
         emotion: true,
       },
@@ -351,9 +352,9 @@ export class MemberService {
           diaryFound.emotion,
           this.getEmotionName(diaryFound.emotion),
         );
-        days.push(new DayEmotionDto(d, emotionInfo));
+        days.push(new DayEmotionDto(d, diaryFound.id.toString(), emotionInfo));
       } else {
-        days.push(new DayEmotionDto(d, null));
+        days.push(new DayEmotionDto(d, null, null));
       }
     }
     return new MonthlyEmotionResponseDto(year, month, days);

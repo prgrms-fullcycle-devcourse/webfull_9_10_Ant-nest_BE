@@ -25,7 +25,7 @@ import { MySquareHistoryResponseDto } from "./dto/res/my-square-history.response
 import { UpdateNicknameResponseDto } from "./dto/res/update-nickname.response.dto";
 import { UpdateNicknameRequestDto } from "./dto/req/update-nickname.request.dto";
 import { UpdatePasswordRequestDto } from "./dto/req/update-password.request.dto";
-import { MonthlyEmotionResponseDto } from "./dto/res/montly-emotion.response.dto";
+import { MonthlyEmotionResponseDto } from "./dto/res/monthly-emotion.response.dto";
 import dayjs from "dayjs";
 
 @ApiTags("마이페이지")
