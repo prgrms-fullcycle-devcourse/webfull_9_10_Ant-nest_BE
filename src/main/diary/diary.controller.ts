@@ -9,9 +9,16 @@ import {
   HttpCode,
   Get,
   Param,
-  Patch, Delete,
+  Patch,
+  Delete,
+  UploadedFiles,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { DiaryService } from "./diary.service";
 import { JwtAuthGuard } from "../auth/jwt/jwt-auth.guard";
@@ -29,6 +36,8 @@ import { ParseBigIntPipe } from "../common/pipe/parse-bigint.pipe";
 import { CheckTodayDiaryResponseDto } from "./dto/res/check-today-diary.response.dto";
 import { UpdateDiaryResponseDto } from "./dto/res/update-diary.response.dto";
 import { UpdateDiaryRequestDto } from "./dto/req/update-diary.request.dto";
+import { S3Service } from "../s3/s3.service";
+import { FilesInterceptor } from "@nestjs/platform-express";
 
 @ApiTags("일기")
 @ApiBearerAuth("accessToken")
@@ -36,7 +45,10 @@ import { UpdateDiaryRequestDto } from "./dto/req/update-diary.request.dto";
 @UseInterceptors(SuccessInterceptor)
 @UseFilters(AllExceptionsFilter)
 export class DiaryController {
-  constructor(private readonly diaryService: DiaryService) {}
+  constructor(
+    private readonly diaryService: DiaryService,
+    private readonly s3Service: S3Service,
+  ) {}
 
   @ApiOperation({
     summary: "오늘 일기 작성 API",
@@ -45,13 +57,27 @@ export class DiaryController {
   @ApiCustomResponseDecorator(WriteDiaryResponseDto)
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor("images", 5))
   @Post()
   async writeDiary(
     @Req() req: AuthenticatedRequest,
     @Body() body: WriteDiaryRequestDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<CustomResponse<WriteDiaryResponseDto>> {
     const memberId = BigInt(req.member.id);
-    const result = await this.diaryService.writeDiary(memberId, body);
+
+    let photoUrls: string[] = [];
+    if (files && files.length > 0) {
+      photoUrls = await Promise.all(
+        files.map((file) => this.s3Service.uploadDiaryPhoto(file)),
+      );
+    }
+
+    const result = await this.diaryService.writeDiary(
+      memberId,
+      body,
+      photoUrls,
+    );
 
     return new CustomResponse<WriteDiaryResponseDto>(
       result,
@@ -127,24 +153,37 @@ export class DiaryController {
   @ApiOperation({
     summary: "일기 수정 API",
     description:
-      "제목, 내용, 감정, 사진을 수정합니다. 질문은 수정할 수 없습니다.",
+      "내용과 함께 사진을 수정합니다. 새로운 사진을 올리면 기존 사진은 모두 교체됩니다.",
   })
+  @ApiConsumes("multipart/form-data")
   @ApiCustomResponseDecorator(UpdateDiaryResponseDto)
-  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor("images", 5))
   @Patch("/:diaryId")
   async updateDiary(
     @Param("diaryId", ParseBigIntPipe) diaryId: bigint,
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdateDiaryRequestDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<CustomResponse<UpdateDiaryResponseDto>> {
     const memberId = BigInt(req.member.id);
-    const result = await this.diaryService.updateDiary(diaryId, memberId, body);
 
-    return new CustomResponse<UpdateDiaryResponseDto>(
-      result,
-      "기록이 성공적으로 수정되었습니다.",
+    let newPhotoUrls: string[] = [];
+    if (files && files.length > 0) {
+      newPhotoUrls = await Promise.all(
+        files.map((file) => this.s3Service.uploadDiaryPhoto(file)),
+      );
+    }
+
+    const result = await this.diaryService.updateDiary(
+      diaryId,
+      memberId,
+      body,
+      newPhotoUrls,
+      files.length > 0,
     );
+
+    return new CustomResponse(result, "기록이 성공적으로 수정되었습니다.");
   }
 
   @ApiOperation({

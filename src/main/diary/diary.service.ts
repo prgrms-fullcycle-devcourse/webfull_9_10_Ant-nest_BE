@@ -23,6 +23,7 @@ import TitleTooLongException from "../common/exception/title-too-long.exception"
 import DiaryNotFoundException from "../common/exception/diary-not-found.exception";
 import ForbiddenDiaryException from "../common/exception/forbidden.exception";
 import InvalidQuestionOrderException from "../common/exception/invalid-question-order.exception";
+import { S3Service } from "../s3/s3.service";
 
 // dayjs 설정
 dayjs.extend(utc);
@@ -30,13 +31,11 @@ dayjs.extend(timezone);
 
 @Injectable()
 export class DiaryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) {}
 
-  /**
-   * 한국 시간(KST) 기준 "오늘" 날짜 객체 생성 헬퍼
-   * DB(PostgreSQL)의 DATE 타입에 타임존 오차 없이 저장하기 위해
-   * 'YYYY-MM-DD' 문자열을 기반으로 UTC 기준 0시 객체를 만듭니다.
-   */
   private getKstTodayDate(): Date {
     const todayStr = dayjs().tz("Asia/Seoul").format("YYYY-MM-DD");
     // "2026-04-15T00:00:00Z" 형태로 만들어 Prisma가 날짜 숫자를 그대로 인식하게 합니다.
@@ -71,16 +70,14 @@ export class DiaryService {
   async writeDiary(
     memberId: bigint,
     body: WriteDiaryRequestDto,
+    photoUrls: string[],
   ): Promise<WriteDiaryResponseDto> {
     if (body.title.length > 30) throw new TitleTooLongException();
     if (!body.emotion) throw new EmotionRequiredException();
     if (body.content.length < 10) throw new ContentTooShortException();
 
-    // 순서 검증
-    const diaryCount = await this.prisma.diary.count({
-      where: { memberId },
-    });
-
+    // 1. 질문 순서 검증
+    const diaryCount = await this.prisma.diary.count({ where: { memberId } });
     const validQuestion = await this.prisma.standardQuestion.findMany({
       orderBy: { id: "asc" },
       skip: diaryCount,
@@ -94,25 +91,20 @@ export class DiaryService {
       throw new InvalidQuestionOrderException();
     }
 
-    // [핵심 수정] 한국 시간 기준 오늘 날짜 강제 고정
+    // 2. 오늘 날짜 KST 계산
     const todayKst = this.getKstTodayDate();
 
-    // 중복 체크
+    // 3. 중복 작성 체크
     const existingDiary = await this.prisma.diary.findFirst({
-      where: {
-        memberId: memberId,
-        diaryDate: todayKst,
-      },
+      where: { memberId, diaryDate: todayKst },
     });
+    if (existingDiary) throw new AlreadyWrittenException();
 
-    if (existingDiary) {
-      throw new AlreadyWrittenException();
-    }
-
+    // 4. DB 저장 (트랜잭션)
     const result = await this.prisma.$transaction(async (tx) => {
       const diary = await tx.diary.create({
         data: {
-          memberId: memberId,
+          memberId,
           questionId: BigInt(body.questionId),
           title: body.title,
           content: body.content,
@@ -121,9 +113,10 @@ export class DiaryService {
         },
       });
 
-      if (body.photoUrls && body.photoUrls.length > 0) {
+      // 컨트롤러에서 넘겨받은 S3 URL들을 DB에 기록
+      if (photoUrls.length > 0) {
         await tx.diaryPhoto.createMany({
-          data: body.photoUrls.map((url, index) => ({
+          data: photoUrls.map((url, index) => ({
             diaryId: diary.id,
             imageUrl: url,
             displayOrder: index,
@@ -154,7 +147,7 @@ export class DiaryService {
       return new DiarySummaryResponseDto(
         d.id.toString(),
         d.title,
-        dayjs(d.diaryDate).format("YYYY-MM-DD"), // 날짜 데이터는 그대로 출력
+        dayjs(d.diaryDate).format("YYYY-MM-DD"),
         d.isEdited,
         emotionInfo,
         d.standardQuestion.content,
@@ -229,18 +222,23 @@ export class DiaryService {
     diaryId: bigint,
     memberId: bigint,
     body: UpdateDiaryRequestDto,
+    newPhotoUrls: string[],
+    isImageUpdated: boolean,
   ): Promise<UpdateDiaryResponseDto> {
+    // 1. 기존 일기와 사진 정보 조회
     const diary = await this.prisma.diary.findUnique({
       where: { id: diaryId },
+      include: { photos: true },
     });
 
     if (!diary) throw new DiaryNotFoundException();
     if (diary.memberId !== memberId) throw new ForbiddenDiaryException();
 
-    if (body.title.length > 30) throw new TitleTooLongException();
-    if (body.content.length < 10) throw new ContentTooShortException();
+    // 2. 이미지가 수정되었다면, 기존 S3 파일 삭제 리스트 추출
+    const oldPhotoPaths = diary.photos.map((p) => p.imageUrl);
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // 일기 본문 업데이트
       const diaryUpdate = await tx.diary.update({
         where: { id: diaryId },
         data: {
@@ -251,21 +249,31 @@ export class DiaryService {
         },
       });
 
-      if (body.photoUrls) {
-        await tx.diaryPhoto.deleteMany({ where: { diaryId: diaryId } });
-        if (body.photoUrls.length > 0) {
+      // 3. 사진 교체 로직
+      if (isImageUpdated) {
+        // DB에서 기존 사진 레코드 삭제
+        await tx.diaryPhoto.deleteMany({ where: { diaryId } });
+
+        // DB에 새 사진 레코드 생성
+        if (newPhotoUrls.length > 0) {
           await tx.diaryPhoto.createMany({
-            data: body.photoUrls.map((url, index) => ({
-              diaryId: diaryId,
+            data: newPhotoUrls.map((url, index) => ({
+              diaryId,
               imageUrl: url,
               displayOrder: index,
             })),
           });
         }
       }
-
       return diaryUpdate;
     });
+
+    // 4. DB 트랜잭션이 성공한 후, 실제 S3에서 기존 파일 삭제 (좀비 파일 방지)
+    if (isImageUpdated && oldPhotoPaths.length > 0) {
+      await Promise.all(
+        oldPhotoPaths.map((path) => this.s3Service.deleteFile(path)),
+      );
+    }
 
     return new UpdateDiaryResponseDto(
       updated.id.toString(),
@@ -273,17 +281,26 @@ export class DiaryService {
     );
   }
 
-  // 6. 일기 삭제
+  // 일기 삭제
   async deleteDiary(diaryId: bigint, memberId: bigint): Promise<void> {
     const diary = await this.prisma.diary.findUnique({
       where: { id: diaryId },
+      include: { photos: true },
     });
 
     if (!diary) throw new DiaryNotFoundException();
     if (diary.memberId !== memberId) throw new ForbiddenDiaryException();
 
-    await this.prisma.diary.delete({
-      where: { id: diaryId },
-    });
+    const photoPaths = diary.photos.map((p) => p.imageUrl);
+
+    // 1. DB에서 먼저 삭제
+    await this.prisma.diary.delete({ where: { id: diaryId } });
+
+    // 2. 삭제 성공 후 S3 파일들 삭제
+    if (photoPaths.length > 0) {
+      await Promise.all(
+        photoPaths.map((path) => this.s3Service.deleteFile(path)),
+      );
+    }
   }
 }

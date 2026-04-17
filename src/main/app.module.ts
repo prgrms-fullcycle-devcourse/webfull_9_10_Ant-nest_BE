@@ -6,9 +6,11 @@ import { QuestionModule } from "./question/question.module";
 import { SquareService } from "./square/square.service";
 import { SquareController } from "./square/square.controller";
 import { SquareModule } from "./square/square.module";
-import { MemberService } from './member/member.service';
-import { MemberController } from './member/member.controller';
-import { MemberModule } from './member/member.module';
+import { MemberService } from "./member/member.service";
+import { MemberController } from "./member/member.controller";
+import { MemberModule } from "./member/member.module";
+import { S3Module } from "./s3/s3.module";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
   imports: [
@@ -18,6 +20,11 @@ import { MemberModule } from './member/member.module';
     QuestionModule,
     SquareModule,
     MemberModule,
+    S3Module,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ".env",
+    }),
   ],
   controllers: [SquareController, MemberController],
   providers: [SquareService, MemberService],
