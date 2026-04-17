@@ -159,7 +159,9 @@ export class SquareService {
       },
       include: {
         diary: true,
-        empathyRecords: true,
+        empathyRecords:{
+          include: { empathyType: true },
+        },
       },
     });
 
