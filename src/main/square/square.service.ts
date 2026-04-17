@@ -159,7 +159,7 @@ export class SquareService {
       },
       include: {
         diary: true,
-        empathyRecords:{
+        empathyRecords: {
           include: { empathyType: true },
         },
       },
@@ -308,10 +308,8 @@ export class SquareService {
     if (!post) throw new SquarePostNotFoundException();
 
     // 공용 통계 계산 메서드 호출
-    const { stats, totalCount } = await this.calculateEmpathyStats(
-      post.empathyRecords,
-      memberId,
-    );
+    const { stats, totalCount, myReactionId } =
+      await this.calculateEmpathyStats(post.empathyRecords, memberId);
 
     const emotionInfo = new EmotionInfoResponseDto(
       post.diary.emotion,
@@ -329,6 +327,7 @@ export class SquareService {
       this.getRelativeTime(post.createdAt),
       totalCount,
       stats,
+      myReactionId,
     );
   }
 }

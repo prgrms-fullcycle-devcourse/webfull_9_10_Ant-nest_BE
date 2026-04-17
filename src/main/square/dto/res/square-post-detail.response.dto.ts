@@ -31,6 +31,9 @@ export class SquarePostDetailResponseDto {
   @ApiProperty({ example: "10분 전", description: "상대적 공유 시간" })
   sharedAtRelative: string;
 
+  @ApiProperty({ example: "2", nullable: true, description: "내가 남긴 공감 종류 ID" })
+  myReactionId: string | null;
+
   constructor(
     question: string,
     title: string,
@@ -40,6 +43,7 @@ export class SquarePostDetailResponseDto {
     sharedAtRelative: string,
     totalEmpathyCount: number,
     empathyStats: EmpathyStatResponseDto[],
+    myReactionId: string | null,
   ) {
     this.question = question;
     this.title = title;
@@ -49,5 +53,6 @@ export class SquarePostDetailResponseDto {
     this.sharedAtRelative = sharedAtRelative;
     this.totalEmpathyCount = totalEmpathyCount;
     this.empathyStats = empathyStats;
+    this.myReactionId = myReactionId;
   }
 }
