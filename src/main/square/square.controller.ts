@@ -142,8 +142,14 @@ export class SquareController {
   @Get("/posts/:postId")
   async getSquarePostDetail(
     @Param("postId", ParseBigIntPipe) postId: bigint,
+    @Req() req: jwtTypes.AuthenticatedRequest,
   ): Promise<CustomResponse<SquarePostDetailResponseDto>> {
-    const result = await this.squareService.getSquarePostDetail(postId);
+    const memberId = BigInt(req.member.id);
+
+    const result = await this.squareService.getSquarePostDetail(
+      postId,
+      memberId,
+    );
 
     return new CustomResponse<SquarePostDetailResponseDto>(
       result,

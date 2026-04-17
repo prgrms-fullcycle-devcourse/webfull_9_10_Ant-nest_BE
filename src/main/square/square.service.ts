@@ -45,6 +45,49 @@ export class SquareService {
     return names[type];
   }
 
+  private async calculateEmpathyStats(
+    empathyRecords: any[],
+    memberId: bigint,
+  ): Promise<{
+    stats: EmpathyStatResponseDto[];
+    totalCount: number;
+    myReactionId: string | null;
+  }> {
+    // 1. 모든 공감 종류(5종) 조회
+    const allEmpathyTypes = await this.prisma.empathyType.findMany({
+      orderBy: { id: "asc" },
+    });
+
+    // 2. Map 초기화 (모든 종류를 0으로 세팅)
+    const statsMap = new Map<string, { name: string; count: number }>();
+    allEmpathyTypes.forEach((type) => {
+      statsMap.set(type.id.toString(), { name: type.name, count: 0 });
+    });
+
+    let myReactionId: string | null = null;
+
+    // 3. 실제 레코드 카운팅
+    empathyRecords.forEach((record) => {
+      const typeId = record.typeId.toString();
+      if (statsMap.has(typeId)) {
+        statsMap.get(typeId)!.count++;
+      }
+      if (record.memberId === memberId) {
+        myReactionId = typeId;
+      }
+    });
+
+    const stats = Array.from(statsMap.entries()).map(
+      ([id, val]) => new EmpathyStatResponseDto(id, val.name, val.count),
+    );
+
+    return {
+      stats,
+      totalCount: empathyRecords.length,
+      myReactionId,
+    };
+  }
+
   // 달래 광장 공유 토글
   async toggleShare(
     diaryId: bigint,
@@ -102,64 +145,46 @@ export class SquareService {
         isActive: true,
         diary: {
           diaryDate: todayKstDate,
+          emotion: query.emotion || undefined,
         },
       },
       include: {
         diary: true,
-        empathyRecords: {
-          include: {
-            empathyType: true,
-          },
-        },
+        empathyRecords: true,
       },
     });
 
-    const result = posts.map((post) => {
-      const totalEmpathyCount = post.empathyRecords.length;
+    // 비동기 처리를 포함한 매핑 루프
+    const result = await Promise.all(
+      posts.map(async (post) => {
+        // 공용 통계 계산 메서드 호출
+        const { stats, totalCount, myReactionId } =
+          await this.calculateEmpathyStats(post.empathyRecords, memberId);
 
-      let myReactionId: string | null = null;
-      const statsMap = new Map<string, { name: string; count: number }>();
+        const emotionInfo = new EmotionInfoResponseDto(
+          post.diary.emotion,
+          this.getEmotionName(post.diary.emotion),
+        );
 
-      post.empathyRecords.forEach((record) => {
-        const typeId = record.typeId.toString();
+        return new SquarePostListResponseDto(
+          post.id.toString(),
+          post.diaryId.toString(),
+          post.diary.title,
+          post.diary.content,
+          emotionInfo,
+          post.diary.memberId === memberId,
+          post.diary.isEdited,
+          totalCount,
+          stats,
+          myReactionId,
+        );
+      }),
+    );
 
-        if (!statsMap.has(typeId)) {
-          statsMap.set(typeId, { name: record.empathyType.name, count: 0 });
-        }
-        statsMap.get(typeId)!.count++;
-
-        if (record.memberId === memberId) {
-          myReactionId = typeId;
-        }
-      });
-
-      const empathyStats = Array.from(statsMap.entries()).map(
-        ([id, val]) => new EmpathyStatResponseDto(id, val.name, val.count),
-      );
-
-      const emotionInfo = new EmotionInfoResponseDto(
-        post.diary.emotion,
-        this.getEmotionName(post.diary.emotion),
-      );
-
-      return new SquarePostListResponseDto(
-        post.id.toString(),
-        post.diaryId.toString(),
-        post.diary.title,
-        post.diary.content,
-        emotionInfo,
-        post.diary.memberId === memberId,
-        post.diary.isEdited,
-        totalEmpathyCount,
-        empathyStats,
-        myReactionId,
-      );
-    });
-
+    // 정렬 처리
     if (query.sort === SquareSortType.POPULAR) {
       return result.sort((a, b) => b.totalEmpathyCount - a.totalEmpathyCount);
     }
-
     return result.sort((a, b) => Number(BigInt(b.postId) - BigInt(a.postId)));
   }
 
@@ -258,39 +283,29 @@ export class SquareService {
   // 광장 게시글 상세 조회
   async getSquarePostDetail(
     postId: bigint,
+    memberId: bigint,
   ): Promise<SquarePostDetailResponseDto> {
-    // 1. 게시글 조회
     const post = await this.prisma.squarePost.findUnique({
-      where: {
-        id: postId,
-        isActive: true,
-      },
+      where: { id: postId, isActive: true },
       include: {
-        diary: {
-          include: {
-            standardQuestion: true,
-          },
-        },
-        _count: {
-          select: {
-            empathyRecords: true,
-          },
-        },
+        diary: { include: { standardQuestion: true } },
+        empathyRecords: true,
       },
     });
 
-    // 2. 존재하지 않거나 비활성화된 경우 404 예외 발생
-    if (!post) {
-      throw new SquarePostNotFoundException();
-    }
+    if (!post) throw new SquarePostNotFoundException();
 
-    // 3. 감정 정보 DTO
+    // 공용 통계 계산 메서드 호출
+    const { stats, totalCount } = await this.calculateEmpathyStats(
+      post.empathyRecords,
+      memberId,
+    );
+
     const emotionInfo = new EmotionInfoResponseDto(
       post.diary.emotion,
       this.getEmotionName(post.diary.emotion),
     );
 
-    // 4. 최종 DTO
     return new SquarePostDetailResponseDto(
       post.diary.standardQuestion.content,
       post.diary.title,
@@ -299,7 +314,8 @@ export class SquareService {
       dayjs(post.diary.createdAt)
         .tz("Asia/Seoul")
         .format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
-      post._count.empathyRecords,
+      totalCount,
+      stats,
     );
   }
 }

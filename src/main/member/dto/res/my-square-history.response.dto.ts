@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { EmpathyStatResponseDto } from "../../../square/dto/res/empathy-stat.response.dto";
 
 export class MySquareHistoryResponseDto {
   @ApiProperty({ example: "501", description: "광장 게시글 ID" })
@@ -20,6 +21,12 @@ export class MySquareHistoryResponseDto {
   totalEmpathyCount: number;
 
   @ApiProperty({
+    type: [EmpathyStatResponseDto],
+    description: "공감 종류별 상세 통계",
+  })
+  empathyStats: EmpathyStatResponseDto[];
+
+  @ApiProperty({
     example: "2026-04-15T06:30:00.000+09:00",
     description: "광장 공유 시각",
   })
@@ -34,6 +41,7 @@ export class MySquareHistoryResponseDto {
     title: string,
     content: string,
     totalEmpathyCount: number,
+    empathyStats: EmpathyStatResponseDto[],
     sharedAt: string,
     isActive: boolean,
   ) {
@@ -42,6 +50,7 @@ export class MySquareHistoryResponseDto {
     this.title = title;
     this.content = content;
     this.totalEmpathyCount = totalEmpathyCount;
+    this.empathyStats = empathyStats;
     this.sharedAt = sharedAt;
     this.isActive = isActive;
   }

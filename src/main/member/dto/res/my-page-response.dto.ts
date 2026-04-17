@@ -1,25 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { EmotionType } from "@prisma/client";
+import { EmpathyStatResponseDto } from "../../../square/dto/res/empathy-stat.response.dto";
 
-// 1. 공감 통계 상세 (광장에서 받은 반응들)
-class EmpathyCountDto {
-  @ApiProperty({ example: "2" })
-  typeId: string;
-
-  @ApiProperty({ example: "설렘" })
-  name: string;
-
-  @ApiProperty({ example: 25 })
-  count: number;
-
-  constructor(typeId: string, name: string, count: number) {
-    this.typeId = typeId;
-    this.name = name;
-    this.count = count;
-  }
-}
-
-// 2. 이달의 감정 통계
 class MonthlyEmotionStatDto {
   @ApiProperty({ enum: EmotionType, example: EmotionType.HAPPY })
   type: EmotionType;
@@ -40,31 +22,28 @@ export class MyPageResponseDto {
   @ApiProperty({ example: "춘식이" })
   nickname: string;
 
-  @ApiProperty({
-    example: 15,
-    description: "함께한 날 (가입일로부터 오늘까지)",
-  })
+  @ApiProperty({ example: 15 })
   daysSinceJoining: number;
 
-  @ApiProperty({ example: 7, description: "현재 연속 일기 작성일" })
+  @ApiProperty({ example: 7 })
   consecutiveDays: number;
 
-  @ApiProperty({ example: 42, description: "총 작성 일기 개수" })
+  @ApiProperty({ example: 42 })
   totalDiaries: number;
 
-  @ApiProperty({ example: 12, description: "광장에 공유된 일기 개수" })
+  @ApiProperty({ example: 12 })
   totalSharedDiaries: number;
 
   @ApiProperty({
-    type: [EmpathyCountDto],
-    description: "광장에서 받은 공감 종류별 개수",
+    example: 158,
+    description: "내가 광장 글을 통해 받은 총 공감 수",
   })
-  receivedEmpathies: EmpathyCountDto[];
+  totalReceivedEmpathyCount: number;
 
-  @ApiProperty({
-    type: [MonthlyEmotionStatDto],
-    description: "이달의 감정 통계",
-  })
+  @ApiProperty({ type: [EmpathyStatResponseDto] })
+  receivedEmpathies: EmpathyStatResponseDto[];
+
+  @ApiProperty({ type: [MonthlyEmotionStatDto] })
   monthlyEmotions: MonthlyEmotionStatDto[];
 
   constructor(
@@ -74,7 +53,8 @@ export class MyPageResponseDto {
     consecutiveDays: number,
     totalDiaries: number,
     totalSharedDiaries: number,
-    receivedEmpathies: EmpathyCountDto[],
+    totalReceivedEmpathyCount: number,
+    receivedEmpathies: EmpathyStatResponseDto[],
     monthlyEmotions: MonthlyEmotionStatDto[],
   ) {
     this.email = email;
@@ -83,6 +63,7 @@ export class MyPageResponseDto {
     this.consecutiveDays = consecutiveDays;
     this.totalDiaries = totalDiaries;
     this.totalSharedDiaries = totalSharedDiaries;
+    this.totalReceivedEmpathyCount = totalReceivedEmpathyCount;
     this.receivedEmpathies = receivedEmpathies;
     this.monthlyEmotions = monthlyEmotions;
   }
