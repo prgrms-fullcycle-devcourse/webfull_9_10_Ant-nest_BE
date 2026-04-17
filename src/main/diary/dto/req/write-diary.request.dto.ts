@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString, MaxLength } from "class-validator";
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { EmotionType } from "@prisma/client";
 
@@ -44,5 +44,6 @@ export class WriteDiaryRequestDto {
     description: "이미지 파일 리스트 (최대 5장)",
     required: false,
   })
+  @IsOptional()
   images?: any[];
 }
