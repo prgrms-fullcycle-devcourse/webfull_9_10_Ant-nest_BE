@@ -37,6 +37,9 @@ export class SquarePostListResponseDto {
   @ApiProperty({ example: "2", nullable: true })
   myReactionId: string | null;
 
+  @ApiProperty({ example: "10분 전", description: "상대적 공유 시간" })
+  sharedAtRelative: string;
+
   constructor(
     postId: string,
     diaryId: string,
@@ -45,6 +48,7 @@ export class SquarePostListResponseDto {
     emotion: EmotionInfoResponseDto,
     isMine: boolean,
     isEdited: boolean,
+    sharedAtRelative: string,
     totalEmpathyCount: number,
     empathyStats: EmpathyStatResponseDto[],
     myReactionId: string | null,
@@ -56,6 +60,7 @@ export class SquarePostListResponseDto {
     this.emotion = emotion;
     this.isMine = isMine;
     this.isEdited = isEdited;
+    this.sharedAtRelative = sharedAtRelative;
     this.totalEmpathyCount = totalEmpathyCount;
     this.empathyStats = empathyStats;
     this.myReactionId = myReactionId;

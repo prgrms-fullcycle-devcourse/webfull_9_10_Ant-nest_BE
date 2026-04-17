@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/ko";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { ShareDiaryRequestDto } from "./dto/req/share-diary.request.dto";
@@ -26,6 +28,8 @@ import { SquarePostDetailResponseDto } from "./dto/res/square-post-detail.respon
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(relativeTime);
+dayjs.locale("ko");
 
 @Injectable()
 export class SquareService {
@@ -86,6 +90,11 @@ export class SquareService {
       totalCount: empathyRecords.length,
       myReactionId,
     };
+  }
+
+  // 상대적 시간 헬퍼
+  private getRelativeTime(date: Date): string {
+    return dayjs(date).fromNow();
   }
 
   // 달래 광장 공유 토글
@@ -174,6 +183,7 @@ export class SquareService {
           emotionInfo,
           post.diary.memberId === memberId,
           post.diary.isEdited,
+          this.getRelativeTime(post.createdAt),
           totalCount,
           stats,
           myReactionId,
@@ -314,6 +324,7 @@ export class SquareService {
       dayjs(post.diary.createdAt)
         .tz("Asia/Seoul")
         .format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
+      this.getRelativeTime(post.createdAt),
       totalCount,
       stats,
     );

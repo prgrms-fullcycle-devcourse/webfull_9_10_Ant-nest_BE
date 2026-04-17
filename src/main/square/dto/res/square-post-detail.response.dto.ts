@@ -28,12 +28,16 @@ export class SquarePostDetailResponseDto {
   })
   empathyStats: EmpathyStatResponseDto[];
 
+  @ApiProperty({ example: "10분 전", description: "상대적 공유 시간" })
+  sharedAtRelative: string;
+
   constructor(
     question: string,
     title: string,
     content: string,
     emotion: EmotionInfoResponseDto,
     createdAt: string,
+    sharedAtRelative: string,
     totalEmpathyCount: number,
     empathyStats: EmpathyStatResponseDto[],
   ) {
@@ -42,6 +46,7 @@ export class SquarePostDetailResponseDto {
     this.content = content;
     this.emotion = emotion;
     this.createdAt = createdAt;
+    this.sharedAtRelative = sharedAtRelative;
     this.totalEmpathyCount = totalEmpathyCount;
     this.empathyStats = empathyStats;
   }
