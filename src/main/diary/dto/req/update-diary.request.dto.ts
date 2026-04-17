@@ -35,5 +35,5 @@ export class UpdateDiaryRequestDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(5)
-  photoUrls?: string[];
+  images?: any[];
 }
