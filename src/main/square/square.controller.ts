@@ -1,6 +1,7 @@
 import {
   Body,
-  Controller, Delete,
+  Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -28,6 +29,7 @@ import { SquarePostListResponseDto } from "./dto/res/suqare-post-list.response.d
 import { GetSquarePostsQueryDto } from "./dto/req/get-square-posts-query.dto";
 import { CreateEmpathyResponseDto } from "./dto/res/create-empathy.response.dto";
 import { CreateEmpathyRequestDto } from "./dto/req/create-empathy.request.dto";
+import { SquarePostDetailResponseDto } from "./dto/res/square-post-detail.response.dto";
 
 @ApiTags("달래 광장")
 @ApiBearerAuth("accessToken")
@@ -114,7 +116,8 @@ export class SquareController {
 
   @ApiOperation({
     summary: "공감 취소 API",
-    description: "게시물에 남겼던 공감을 취소합니다. (이미 선택한 버튼을 다시 누를 때 사용)",
+    description:
+      "게시물에 남겼던 공감을 취소합니다. (이미 선택한 버튼을 다시 누를 때 사용)",
   })
   @UseGuards(JwtAuthGuard)
   @Delete("/posts/:postId/empathies")
@@ -122,15 +125,29 @@ export class SquareController {
     @Param("postId", ParseBigIntPipe) postId: bigint,
     @Req() req: jwtTypes.AuthenticatedRequest,
   ): Promise<CustomResponse<void>> {
-
     const memberId = BigInt(req.member.id);
 
     await this.squareService.deleteEmpathy(postId, memberId);
 
-    return new CustomResponse<void>(
-      undefined,
-      "공감이 취소되었습니다.",
-    );
+    return new CustomResponse<void>(undefined, "공감이 취소되었습니다.");
   }
 
+  @ApiOperation({
+    summary: "달래광장 게시글 상세 조회 API",
+    description:
+      "달래광장에 공유된 특정 게시글의 상세 내용과 공감 수를 조회합니다.",
+  })
+  @ApiCustomResponseDecorator(SquarePostDetailResponseDto, HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Get("/posts/:postId")
+  async getSquarePostDetail(
+    @Param("postId", ParseBigIntPipe) postId: bigint,
+  ): Promise<CustomResponse<SquarePostDetailResponseDto>> {
+    const result = await this.squareService.getSquarePostDetail(postId);
+
+    return new CustomResponse<SquarePostDetailResponseDto>(
+      result,
+      "광장 게시글 상세 정보를 성공적으로 불러왔습니다.",
+    );
+  }
 }

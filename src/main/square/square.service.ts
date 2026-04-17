@@ -22,6 +22,7 @@ import { CreateEmpathyResponseDto } from "./dto/res/create-empathy.response.dto"
 import SquarePostNotFoundException from "../common/exception/square-post-not-found.exception";
 import InvalidEmpathyTypeException from "../common/exception/invalid-empathy-type.exception";
 import EmpathyRecordNotFoundException from "../common/exception/empathy-record-not-found.exception";
+import { SquarePostDetailResponseDto } from "./dto/res/square-post-detail.response.dto";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -252,5 +253,53 @@ export class SquareService {
         },
       },
     });
+  }
+
+  // 광장 게시글 상세 조회
+  async getSquarePostDetail(
+    postId: bigint,
+  ): Promise<SquarePostDetailResponseDto> {
+    // 1. 게시글 조회
+    const post = await this.prisma.squarePost.findUnique({
+      where: {
+        id: postId,
+        isActive: true,
+      },
+      include: {
+        diary: {
+          include: {
+            standardQuestion: true,
+          },
+        },
+        _count: {
+          select: {
+            empathyRecords: true,
+          },
+        },
+      },
+    });
+
+    // 2. 존재하지 않거나 비활성화된 경우 404 예외 발생
+    if (!post) {
+      throw new SquarePostNotFoundException();
+    }
+
+    // 3. 감정 정보 DTO
+    const emotionInfo = new EmotionInfoResponseDto(
+      post.diary.emotion,
+      this.getEmotionName(post.diary.emotion),
+    );
+
+    // 4. 최종 DTO
+    return new SquarePostDetailResponseDto(
+      post.diary.standardQuestion.content,
+      post.diary.title,
+      post.diary.content,
+      emotionInfo,
+      dayjs(post.diary.createdAt)
+        .tz("Asia/Seoul")
+        .format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
+      post._count.empathyRecords,
+    );
   }
 }
